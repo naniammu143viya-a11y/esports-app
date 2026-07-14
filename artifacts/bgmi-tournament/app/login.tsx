@@ -38,6 +38,7 @@ export default function LoginScreen() {
   const [suMobile, setSuMobile] = useState('');
   const [suGameId, setSuGameId] = useState('');
   const [suGameType, setSuGameType] = useState<GameType>('BGMI');
+  const [suUpiId, setSuUpiId] = useState('');
   const [suPassword, setSuPassword] = useState('');
   const [suConfirm, setSuConfirm] = useState('');
   const [suShowPw, setSuShowPw] = useState(false);
@@ -114,6 +115,7 @@ export default function LoginScreen() {
         gameId: suGameId.trim(),
         gameType: suGameType,
         password: suPassword,
+        upiId: suUpiId.trim() || undefined,
       });
       router.replace('/(tabs)');
     } catch (err: any) {
@@ -216,6 +218,8 @@ export default function LoginScreen() {
               setGameId={(v) => { setSuGameId(v); clearErrors(); }}
               gameType={suGameType}
               setGameType={setSuGameType}
+              upiId={suUpiId}
+              setUpiId={setSuUpiId}
               password={suPassword}
               setPassword={(v) => { setSuPassword(v); clearErrors(); }}
               confirm={suConfirm}
@@ -304,7 +308,7 @@ function SignInForm({
 // ─── Sign-Up Sub-form ─────────────────────────────────────────────────────────
 function SignUpForm({
   c, username, setUsername, mobile, setMobile, gameId, setGameId,
-  gameType, setGameType, password, setPassword, confirm, setConfirm,
+  gameType, setGameType, upiId, setUpiId, password, setPassword, confirm, setConfirm,
   showPw, toggleShowPw, showConfirm, toggleShowConfirm,
   errors, serverError, loading, onSubmit,
   mobileRef, gameIdRef, pwRef, confirmRef,
@@ -382,6 +386,32 @@ function SignUpForm({
         onSubmitEditing={() => pwRef.current?.focus()}
       />
       {!!errors.suGameId && <ErrText c={c} msg={errors.suGameId} />}
+
+      {/* UPI ID — optional */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 14, marginBottom: 6 }}>
+        <Text style={[styles.label, { color: c.mutedForeground, marginTop: 0, marginBottom: 0, flex: 1 }]}>
+          UPI ID / PHONEPЕ NUMBER
+        </Text>
+        <View style={{ backgroundColor: 'rgba(255,107,0,0.12)', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
+          <Text style={{ fontSize: 9, fontFamily: 'Inter_600SemiBold', color: c.primary, letterSpacing: 0.5 }}>
+            OPTIONAL
+          </Text>
+        </View>
+      </View>
+      <InputWrap
+        c={c}
+        icon="wallet-outline"
+        value={upiId}
+        onChangeText={setUpiId}
+        placeholder="yourname@upi or 9876543210"
+        autoCapitalize="none"
+        autoCorrect={false}
+        returnKeyType="next"
+        onSubmitEditing={() => pwRef.current?.focus()}
+      />
+      <Text style={[styles.errText, { color: c.mutedForeground, marginTop: 4, marginBottom: 4 }]}>
+        For receiving prize payouts. Can also be set later in Earnings tab.
+      </Text>
 
       <FieldLabel c={c} label="PASSWORD" />
       <PasswordInput

@@ -14,6 +14,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
+import { useAuth } from '@/context/AuthContext';
 import { useTournaments } from '@/context/TournamentContext';
 import type { Tournament } from '@/context/TournamentContext';
 
@@ -63,27 +64,22 @@ const UPI_APPS = [
   },
 ];
 
-// ─── Step types ───────────────────────────────────────────────────────────────
 type Step = 'payment' | 'verifying' | 'success';
 
-// ─── Props ────────────────────────────────────────────────────────────────────
 interface Props {
   tournament: Tournament;
   onClose: () => void;
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
 export function PaymentModal({ tournament, onClose }: Props) {
   const c = useColors();
+  const { user } = useAuth();
   const { confirmPayment } = useTournaments();
   const [step, setStep] = useState<Step>('payment');
   const [paymentId, setPaymentId] = useState('');
   const [intentLaunched, setIntentLaunched] = useState(false);
 
-  const upiUrl = buildUpiUrl(
-    tournament.entryFee,
-    `Entry: ${tournament.name}`
-  );
+  const upiUrl = buildUpiUrl(tournament.entryFee, `Entry: ${tournament.name}`);
 
   async function openUpiApp(getUrl: (u: string) => string) {
     const url = getUrl(upiUrl);
@@ -93,7 +89,6 @@ export function PaymentModal({ tournament, onClose }: Props) {
         await Linking.openURL(url);
         setIntentLaunched(true);
       } else {
-        // Fallback to generic UPI URL
         const can = await Linking.canOpenURL(upiUrl);
         if (can) {
           await Linking.openURL(upiUrl);
@@ -101,7 +96,7 @@ export function PaymentModal({ tournament, onClose }: Props) {
         } else {
           Alert.alert(
             'No UPI App Found',
-            'Please install PhonePe, Google Pay, or Paytm and try again, or scan the QR code above.'
+            'Please install PhonePe, Google Pay, or Paytm and try again, or scan the QR code above.',
           );
         }
       }
@@ -111,22 +106,25 @@ export function PaymentModal({ tournament, onClose }: Props) {
   }
 
   async function handleConfirmPayment() {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setStep('verifying');
 
-    // Simulate 2s payment verification
     await new Promise((r) => setTimeout(r, 2000));
 
     try {
-      const id = await confirmPayment(tournament.id, tournament.entryFee);
+      const id = await confirmPayment(
+        tournament.id,
+        tournament.entryFee,
+        {
+          username: user?.username ?? 'Unknown',
+          mobile: user?.mobile ?? '',
+          gameId: user?.gameId ?? '',
+          gameType: user?.gameType ?? 'BGMI',
+        },
+      );
       setPaymentId(id);
       setStep('success');
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-      // Auto-close after showing success
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(onClose, 2500);
     } catch {
       setStep('payment');
@@ -141,7 +139,6 @@ export function PaymentModal({ tournament, onClose }: Props) {
       <View style={styles.backdrop}>
         <View style={[styles.sheet, { backgroundColor: c.card, borderColor: c.border }]}>
 
-          {/* ── Close button ── */}
           {step === 'payment' && (
             <Pressable style={styles.closeBtn} onPress={onClose}>
               <Ionicons name="close" size={20} color={c.mutedForeground} />
@@ -151,55 +148,45 @@ export function PaymentModal({ tournament, onClose }: Props) {
           {/* ═══════════════════ PAYMENT STEP ═══════════════════ */}
           {step === 'payment' && (
             <>
-              {/* Tournament header */}
               <View style={styles.tourneyHeader}>
                 <View style={[styles.gameDot, {
-                  backgroundColor: tournament.game === 'BGMI' ? '#FF6B00' : '#FF2D78'
+                  backgroundColor: tournament.game === 'BGMI' ? '#FF6B00' : '#FF2D78',
                 }]} />
                 <Text style={[styles.tourneyName, { color: c.foreground }]} numberOfLines={1}>
                   {tournament.name}
                 </Text>
               </View>
 
-              {/* Amount */}
               <View style={styles.amountRow}>
                 <Text style={[styles.amountLabel, { color: c.mutedForeground }]}>ENTRY FEE</Text>
                 <Text style={[styles.amount, { color: c.primary }]}>₹{tournament.entryFee}</Text>
               </View>
 
-              {/* Seat alert */}
               {availableSeats <= 5 && availableSeats > 0 && (
                 <View style={styles.seatAlert}>
                   <Ionicons name="alert-circle-outline" size={13} color="#EAB308" />
-                  <Text style={styles.seatAlertText}>Only {availableSeats} seat{availableSeats > 1 ? 's' : ''} left!</Text>
+                  <Text style={styles.seatAlertText}>
+                    Only {availableSeats} seat{availableSeats > 1 ? 's' : ''} left!
+                  </Text>
                 </View>
               )}
 
-              {/* Divider */}
               <View style={[styles.divider, { backgroundColor: c.border }]} />
 
-              {/* QR Code */}
               <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>SCAN QR CODE</Text>
               <View style={styles.qrWrap}>
                 <View style={styles.qrPad}>
-                  <QRCode
-                    value={upiUrl}
-                    size={160}
-                    backgroundColor="#ffffff"
-                    color="#000000"
-                  />
+                  <QRCode value={upiUrl} size={160} backgroundColor="#ffffff" color="#000000" />
                 </View>
                 <Text style={[styles.upiIdText, { color: c.mutedForeground }]}>UPI: {UPI_ID}</Text>
               </View>
 
-              {/* OR divider */}
               <View style={styles.orRow}>
                 <View style={[styles.orLine, { backgroundColor: c.border }]} />
                 <Text style={[styles.orText, { color: c.mutedForeground }]}>OR PAY WITH</Text>
                 <View style={[styles.orLine, { backgroundColor: c.border }]} />
               </View>
 
-              {/* UPI app buttons */}
               <View style={styles.appGrid}>
                 {UPI_APPS.map((app) => (
                   <Pressable
@@ -216,10 +203,8 @@ export function PaymentModal({ tournament, onClose }: Props) {
                 ))}
               </View>
 
-              {/* Divider */}
               <View style={[styles.divider, { backgroundColor: c.border }]} />
 
-              {/* Confirm button */}
               <Pressable
                 onPress={handleConfirmPayment}
                 style={({ pressed }) => [
@@ -287,192 +272,58 @@ export function PaymentModal({ tournament, onClose }: Props) {
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.72)',
-    justifyContent: 'flex-end',
-  },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'flex-end' },
   sheet: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    padding: 24,
-    paddingBottom: 40,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    borderWidth: 1, borderBottomWidth: 0,
+    padding: 24, paddingBottom: 40,
   },
-  closeBtn: {
-    position: 'absolute',
-    top: 16,
-    right: 20,
-    zIndex: 10,
-    padding: 4,
-  },
-  // Tournament header
+  closeBtn: { position: 'absolute', top: 16, right: 20, zIndex: 10, padding: 4 },
   tourneyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-    paddingRight: 36,
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, paddingRight: 36,
   },
-  gameDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  tourneyName: {
-    fontSize: 16,
-    fontFamily: 'Inter_700Bold',
-    flex: 1,
-  },
-  // Amount
+  gameDot: { width: 10, height: 10, borderRadius: 5 },
+  tourneyName: { fontSize: 16, fontFamily: 'Inter_700Bold', flex: 1 },
   amountRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8,
   },
-  amountLabel: {
-    fontSize: 11,
-    fontFamily: 'Inter_600SemiBold',
-    letterSpacing: 0.8,
-  },
-  amount: {
-    fontSize: 28,
-    fontFamily: 'Inter_700Bold',
-  },
-  // Seat alert
-  seatAlert: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginBottom: 8,
-  },
-  seatAlertText: {
-    fontSize: 12,
-    fontFamily: 'Inter_600SemiBold',
-    color: '#EAB308',
-  },
-  divider: {
-    height: 1,
-    marginVertical: 16,
-  },
+  amountLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8 },
+  amount: { fontSize: 28, fontFamily: 'Inter_700Bold' },
+  seatAlert: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 8 },
+  seatAlertText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#EAB308' },
+  divider: { height: 1, marginVertical: 16 },
   sectionLabel: {
-    fontSize: 10,
-    fontFamily: 'Inter_600SemiBold',
-    letterSpacing: 0.8,
-    textAlign: 'center',
-    marginBottom: 12,
+    fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8,
+    textAlign: 'center', marginBottom: 12,
   },
-  // QR
-  qrWrap: {
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 10,
-  },
-  qrPad: {
-    padding: 12,
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-  },
-  upiIdText: {
-    fontSize: 12,
-    fontFamily: 'Inter_500Medium',
-  },
-  // OR row
-  orRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginVertical: 14,
-  },
+  qrWrap: { alignItems: 'center', marginBottom: 8, gap: 10 },
+  qrPad: { padding: 12, backgroundColor: '#ffffff', borderRadius: 12 },
+  upiIdText: { fontSize: 12, fontFamily: 'Inter_500Medium' },
+  orRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 14 },
   orLine: { flex: 1, height: 1 },
-  orText: {
-    fontSize: 10,
-    fontFamily: 'Inter_600SemiBold',
-    letterSpacing: 0.8,
-  },
-  // UPI app grid
-  appGrid: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 4,
-  },
+  orText: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8 },
+  appGrid: { flexDirection: 'row', gap: 8, marginBottom: 4 },
   appBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    borderRadius: 12,
-    paddingVertical: 10,
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    gap: 4, borderRadius: 12, paddingVertical: 10,
   },
-  appBtnText: {
-    fontSize: 10,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  // Confirm button
+  appBtnText: { fontSize: 10, fontFamily: 'Inter_600SemiBold' },
   confirmBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 14,
-    paddingVertical: 15,
-    marginBottom: 10,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, borderRadius: 14, paddingVertical: 15, marginBottom: 10,
   },
-  confirmBtnText: {
-    fontSize: 15,
-    fontFamily: 'Inter_700Bold',
-    color: '#fff',
-  },
-  disclaimer: {
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-  // Centered steps (verifying / success)
-  centeredStep: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    gap: 12,
-  },
-  stepTitle: {
-    fontSize: 20,
-    fontFamily: 'Inter_700Bold',
-    marginTop: 8,
-  },
-  stepSub: {
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+  confirmBtnText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
+  disclaimer: { fontSize: 11, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 16 },
+  centeredStep: { alignItems: 'center', paddingVertical: 24, gap: 12 },
+  stepTitle: { fontSize: 20, fontFamily: 'Inter_700Bold', marginTop: 8 },
+  stepSub: { fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 20 },
   successCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 72, height: 72, borderRadius: 36,
     backgroundColor: 'rgba(34,197,94,0.15)',
-    borderWidth: 2,
-    borderColor: 'rgba(34,197,94,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderWidth: 2, borderColor: 'rgba(34,197,94,0.4)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  payIdBox: {
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 10,
-    gap: 4,
-  },
-  payIdLabel: {
-    fontSize: 9,
-    fontFamily: 'Inter_600SemiBold',
-    letterSpacing: 0.8,
-  },
-  payIdValue: {
-    fontSize: 14,
-    fontFamily: 'Inter_700Bold',
-    letterSpacing: 1.5,
-  },
+  payIdBox: { alignItems: 'center', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10, gap: 4 },
+  payIdLabel: { fontSize: 9, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8 },
+  payIdValue: { fontSize: 14, fontFamily: 'Inter_700Bold', letterSpacing: 1.5 },
 });

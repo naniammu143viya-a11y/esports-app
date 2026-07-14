@@ -16,15 +16,16 @@ export interface User {
   gameId: string;
   gameType: GameType;
   isAdmin: boolean;
+  upiId?: string;
 }
 
-/** Stored account record — includes password (local mock only, never sent anywhere) */
 interface Account {
   username: string;
   mobile: string;
   gameId: string;
   gameType: GameType;
   password: string;
+  upiId?: string;
 }
 
 export interface RegisterData {
@@ -33,6 +34,7 @@ export interface RegisterData {
   gameId: string;
   gameType: GameType;
   password: string;
+  upiId?: string;
 }
 
 interface AuthContextType {
@@ -41,6 +43,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
+  updateProfile: (updates: Partial<Pick<User, 'upiId'>>) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -66,7 +69,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Restore session on mount
   useEffect(() => {
     (async () => {
       try {
@@ -85,18 +87,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(u);
   }
 
-  /**
-   * Login — checks admin credentials first, then registered accounts.
-   * Throws a string error message on failure.
-   */
   async function login(username: string, password: string): Promise<void> {
     const uname = username.trim().toLowerCase();
 
-    // ── Admin path ──────────────────────────────────────────────────────────
     if (uname === ADMIN_USERNAME.toLowerCase()) {
-      if (password !== ADMIN_PASSWORD) {
-        throw new Error('Incorrect admin password.');
-      }
+      if (password !== ADMIN_PASSWORD) throw new Error('Incorrect admin password.');
       await persistSession({
         username: ADMIN_USERNAME,
         mobile: '',
@@ -107,18 +102,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // ── Regular user path ───────────────────────────────────────────────────
     const accounts = await loadAccounts();
-    const account = accounts.find(
-      (a) => a.username.trim().toLowerCase() === uname,
-    );
-
-    if (!account) {
-      throw new Error('Account not found. Please sign up first.');
-    }
-    if (account.password !== password) {
-      throw new Error('Incorrect password.');
-    }
+    const account = accounts.find((a) => a.username.trim().toLowerCase() === uname);
+    if (!account) throw new Error('Account not found. Please sign up first.');
+    if (account.password !== password) throw new Error('Incorrect password.');
 
     await persistSession({
       username: account.username,
@@ -126,26 +113,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       gameId: account.gameId,
       gameType: account.gameType,
       isAdmin: false,
+      upiId: account.upiId,
     });
   }
 
-  /**
-   * Register a new gamer account.
-   * Throws a string error message on conflict / validation failures.
-   */
   async function register(data: RegisterData): Promise<void> {
     const uname = data.username.trim().toLowerCase();
 
-    // Block the reserved admin username
     if (uname === ADMIN_USERNAME.toLowerCase()) {
       throw new Error('This username is reserved. Choose a different one.');
     }
 
     const accounts = await loadAccounts();
-    const exists = accounts.some(
-      (a) => a.username.trim().toLowerCase() === uname,
-    );
-    if (exists) {
+    if (accounts.some((a) => a.username.trim().toLowerCase() === uname)) {
       throw new Error('Username already taken. Try another one.');
     }
 
@@ -155,18 +135,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       gameId: data.gameId.trim(),
       gameType: data.gameType,
       password: data.password,
+      upiId: data.upiId?.trim() || undefined,
     };
 
     await saveAccounts([...accounts, newAccount]);
 
-    // Auto-login after successful registration
     await persistSession({
       username: newAccount.username,
       mobile: newAccount.mobile,
       gameId: newAccount.gameId,
       gameType: newAccount.gameType,
       isAdmin: false,
+      upiId: newAccount.upiId,
     });
+  }
+
+  /**
+   * Update profile fields (upiId for now).
+   * Syncs to both the session and the accounts store.
+   */
+  async function updateProfile(updates: Partial<Pick<User, 'upiId'>>): Promise<void> {
+    if (!user || user.isAdmin) return;
+
+    const updatedUser: User = { ...user, ...updates };
+
+    // Update accounts store
+    const accounts = await loadAccounts();
+    const updatedAccounts = accounts.map((a) =>
+      a.username.toLowerCase() === user.username.toLowerCase()
+        ? { ...a, ...updates }
+        : a,
+    );
+    await saveAccounts(updatedAccounts);
+
+    await persistSession(updatedUser);
   }
 
   async function logout(): Promise<void> {
@@ -176,7 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, isLoggedIn: !!user, isLoading, login, register, logout }}
+      value={{ user, isLoggedIn: !!user, isLoading, login, register, updateProfile, logout }}
     >
       {children}
     </AuthContext.Provider>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Platform, StyleSheet, useColorScheme, View } from 'react-native';
 import { useColors } from '@/hooks/useColors';
-import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
@@ -24,6 +24,12 @@ function NativeTabLayout() {
         <Icon sf={{ default: 'gamecontroller', selected: 'gamecontroller.fill' }} />
         <Label>My Matches</Label>
       </NativeTabs.Trigger>
+      {!isAdmin && (
+        <NativeTabs.Trigger name="wallet">
+          <Icon sf={{ default: 'wallet', selected: 'wallet.fill' }} />
+          <Label>Earnings</Label>
+        </NativeTabs.Trigger>
+      )}
       {isAdmin && (
         <NativeTabs.Trigger name="admin">
           <Icon sf={{ default: 'shield', selected: 'shield.fill' }} />
@@ -97,11 +103,25 @@ function ClassicTabLayout() {
             ),
         }}
       />
+      {/* Wallet tab — shown to regular users only */}
+      <Tabs.Screen
+        name="wallet"
+        options={{
+          title: 'Earnings',
+          href: isAdmin ? null : undefined,
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="wallet.fill" tintColor={color} size={22} />
+            ) : (
+              <Ionicons name="wallet" size={22} color={color} />
+            ),
+        }}
+      />
+      {/* Admin tab — shown to admin only */}
       <Tabs.Screen
         name="admin"
         options={{
           title: 'Admin',
-          // Hide tab entirely for non-admin users
           href: isAdmin ? undefined : null,
           tabBarIcon: ({ color }) =>
             isIOS ? (

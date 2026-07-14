@@ -29,20 +29,40 @@ export interface Payment {
   amount: number;
 }
 
+/** Player registration record written on payment confirmation */
+export interface Registration {
+  tournamentId: string;
+  username: string;
+  mobile: string;
+  gameId: string;
+  gameType: GameType;
+  paymentId: string;
+  paidAt: string;
+  amount: number;
+}
+
+/** Minimal player info required when confirming a payment */
+export interface PlayerInfo {
+  username: string;
+  mobile: string;
+  gameId: string;
+  gameType: GameType;
+}
+
 interface TournamentContextType {
   tournaments: Tournament[];
   /** All joined tournament IDs (free joins + confirmed payments) */
   joinedIds: string[];
   /** Map of tournamentId → Payment record (only for paid tournaments) */
   payments: Record<string, Payment>;
+  /** All registration records (admin use: see who paid for what) */
+  registrations: Registration[];
   /** Join a free (₹0) tournament directly */
   joinTournament: (id: string) => void;
-  /**
-   * Confirm payment for a paid tournament.
-   * Increments registeredTeams, saves payment record.
-   * Returns the generated paymentId.
-   */
-  confirmPayment: (tournamentId: string, amount: number) => Promise<string>;
+  /** Confirm payment for a paid tournament. Returns generated paymentId. */
+  confirmPayment: (tournamentId: string, amount: number, player: PlayerInfo) => Promise<string>;
+  /** Get paid registrations for a specific tournament */
+  getRegistrations: (tournamentId: string) => Registration[];
   updateRoomDetails: (id: string, roomId: string, password: string) => void;
   addTournament: (t: Omit<Tournament, 'id' | 'registeredTeams'>) => void;
 }
@@ -52,6 +72,7 @@ const TournamentContext = createContext<TournamentContextType | null>(null);
 const TOURNAMENTS_KEY = '@bgmi_tournaments';
 const JOINED_KEY = '@bgmi_joined';
 const PAYMENTS_KEY = '@bgmi_payments';
+const REGISTRATIONS_KEY = '@bgmi_registrations';
 
 const MOCK_TOURNAMENTS: Tournament[] = [
   {
@@ -158,28 +179,25 @@ const MOCK_TOURNAMENTS: Tournament[] = [
 
 export function TournamentProvider({ children }: { children: React.ReactNode }) {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  /** Free-only joined IDs */
   const [freeJoins, setFreeJoins] = useState<string[]>([]);
-  /** Confirmed paid tournament records */
   const [payments, setPayments] = useState<Record<string, Payment>>({});
+  const [registrations, setRegistrations] = useState<Registration[]>([]);
 
-  // Derived: all joined IDs (free + paid)
-  const joinedIds: string[] = [
-    ...freeJoins,
-    ...Object.keys(payments),
-  ];
+  const joinedIds: string[] = [...freeJoins, ...Object.keys(payments)];
 
   useEffect(() => {
     (async () => {
       try {
-        const [rawT, rawJ, rawP] = await Promise.all([
+        const [rawT, rawJ, rawP, rawR] = await Promise.all([
           AsyncStorage.getItem(TOURNAMENTS_KEY),
           AsyncStorage.getItem(JOINED_KEY),
           AsyncStorage.getItem(PAYMENTS_KEY),
+          AsyncStorage.getItem(REGISTRATIONS_KEY),
         ]);
         setTournaments(rawT ? JSON.parse(rawT) : MOCK_TOURNAMENTS);
         setFreeJoins(rawJ ? JSON.parse(rawJ) : []);
         setPayments(rawP ? JSON.parse(rawP) : {});
+        setRegistrations(rawR ? JSON.parse(rawR) : []);
       } catch {
         setTournaments(MOCK_TOURNAMENTS);
       }
@@ -197,7 +215,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     const updated = tournaments.map((t) =>
       t.id === id
         ? { ...t, registeredTeams: Math.min(t.registeredTeams + 1, t.maxTeams) }
-        : t
+        : t,
     );
     const newFree = [...freeJoins, id];
     setFreeJoins(newFree);
@@ -206,41 +224,62 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   }
 
   // ─── Confirm paid payment ─────────────────────────────────────────────────
-  async function confirmPayment(tournamentId: string, amount: number): Promise<string> {
+  async function confirmPayment(
+    tournamentId: string,
+    amount: number,
+    player: PlayerInfo,
+  ): Promise<string> {
     const paymentId = `PAY${Date.now().toString(36).toUpperCase()}`;
+    const now = new Date().toISOString();
 
     const payment: Payment = {
       tournamentId,
       status: 'PAID',
       paymentId,
-      paidAt: new Date().toISOString(),
+      paidAt: now,
+      amount,
+    };
+
+    // Registration record (for admin player list)
+    const registration: Registration = {
+      tournamentId,
+      username: player.username,
+      mobile: player.mobile,
+      gameId: player.gameId,
+      gameType: player.gameType,
+      paymentId,
+      paidAt: now,
       amount,
     };
 
     const newPayments = { ...payments, [tournamentId]: payment };
+    const newRegistrations = [...registrations, registration];
 
-    // Increment registered teams, cap at maxTeams
     const updated = tournaments.map((t) =>
       t.id === tournamentId
         ? { ...t, registeredTeams: Math.min(t.registeredTeams + 1, t.maxTeams) }
-        : t
+        : t,
     );
 
     setPayments(newPayments);
+    setRegistrations(newRegistrations);
+
     await Promise.all([
       AsyncStorage.setItem(PAYMENTS_KEY, JSON.stringify(newPayments)),
+      AsyncStorage.setItem(REGISTRATIONS_KEY, JSON.stringify(newRegistrations)),
       persistTournaments(updated),
     ]);
 
     return paymentId;
   }
 
+  function getRegistrations(tournamentId: string): Registration[] {
+    return registrations.filter((r) => r.tournamentId === tournamentId);
+  }
+
   // ─── Admin: set room details ──────────────────────────────────────────────
   function updateRoomDetails(id: string, roomId: string, password: string) {
-    const updated = tournaments.map((t) =>
-      t.id === id ? { ...t, roomId, password } : t
-    );
-    persistTournaments(updated);
+    persistTournaments(tournaments.map((t) => (t.id === id ? { ...t, roomId, password } : t)));
   }
 
   // ─── Admin: add tournament ────────────────────────────────────────────────
@@ -259,8 +298,10 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         tournaments,
         joinedIds,
         payments,
+        registrations,
         joinTournament,
         confirmPayment,
+        getRegistrations,
         updateRoomDetails,
         addTournament,
       }}

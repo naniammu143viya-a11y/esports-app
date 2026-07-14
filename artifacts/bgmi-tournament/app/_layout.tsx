@@ -15,6 +15,7 @@ import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { TournamentProvider } from '@/context/TournamentContext';
+import { WalletProvider } from '@/context/WalletContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -67,7 +68,9 @@ export default function RootLayout() {
             <KeyboardProvider>
               <AuthProvider>
                 <TournamentProvider>
-                  <RootLayoutNav />
+                  <WalletProvider>
+                    <RootLayoutNav />
+                  </WalletProvider>
                 </TournamentProvider>
               </AuthProvider>
             </KeyboardProvider>

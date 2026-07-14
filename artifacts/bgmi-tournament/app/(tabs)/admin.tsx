@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/context/AuthContext';
 import { useTournaments } from '@/context/TournamentContext';
@@ -217,21 +218,23 @@ export default function AdminScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const router = useRouter();
   const { tournaments, updateRoomDetails, addTournament } = useTournaments();
   const [showAddForm, setShowAddForm] = useState(false);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
+  // Redirect non-admins away immediately — this is a hard guard in case
+  // someone navigates here directly (tab is hidden via href:null for non-admins)
+  useEffect(() => {
+    if (user !== null && !user.isAdmin) {
+      router.replace('/(tabs)');
+    }
+  }, [user]);
+
   if (!user?.isAdmin) {
-    return (
-      <View style={[styles.root, { backgroundColor: c.background, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }]}>
-        <Ionicons name="shield-outline" size={56} color={c.mutedForeground} />
-        <Text style={[styles.accessTitle, { color: c.foreground }]}>Admin Only</Text>
-        <Text style={[styles.accessText, { color: c.mutedForeground }]}>
-          Log in with username "admin" to access the admin panel
-        </Text>
-      </View>
-    );
+    // Show nothing while redirect is in progress
+    return <View style={[styles.root, { backgroundColor: c.background }]} />;
   }
 
   const activeTournaments = tournaments.filter((t) => t.status !== 'completed');

@@ -8,8 +8,12 @@ import { Tabs } from 'expo-router';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '@/context/AuthContext';
 
 function NativeTabLayout() {
+  const { user } = useAuth();
+  const isAdmin = user?.isAdmin === true;
+
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
@@ -20,10 +24,12 @@ function NativeTabLayout() {
         <Icon sf={{ default: 'gamecontroller', selected: 'gamecontroller.fill' }} />
         <Label>My Matches</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="admin">
-        <Icon sf={{ default: 'shield', selected: 'shield.fill' }} />
-        <Label>Admin</Label>
-      </NativeTabs.Trigger>
+      {isAdmin && (
+        <NativeTabs.Trigger name="admin">
+          <Icon sf={{ default: 'shield', selected: 'shield.fill' }} />
+          <Label>Admin</Label>
+        </NativeTabs.Trigger>
+      )}
     </NativeTabs>
   );
 }
@@ -35,6 +41,8 @@ function ClassicTabLayout() {
   const isIOS = Platform.OS === 'ios';
   const isWeb = Platform.OS === 'web';
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const isAdmin = user?.isAdmin === true;
 
   return (
     <Tabs
@@ -93,6 +101,8 @@ function ClassicTabLayout() {
         name="admin"
         options={{
           title: 'Admin',
+          // Hide tab entirely for non-admin users
+          href: isAdmin ? undefined : null,
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="shield.fill" tintColor={color} size={22} />

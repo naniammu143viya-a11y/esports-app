@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Alert,
   Platform,
   Pressable,
   StyleSheet,
@@ -16,7 +15,8 @@ import type { Tournament } from '@/context/TournamentContext';
 interface Props {
   tournament: Tournament;
   isJoined: boolean;
-  onJoin: (id: string) => void;
+  /** Called when user wants to join. Screen decides free-join vs payment modal. */
+  onJoin: (tournament: Tournament) => void;
 }
 
 function StatusPill({ status }: { status: Tournament['status'] }) {
@@ -44,36 +44,21 @@ function StatusPill({ status }: { status: Tournament['status'] }) {
 export function TournamentCard({ tournament, isJoined, onJoin }: Props) {
   const c = useColors();
   const isFull = tournament.registeredTeams >= tournament.maxTeams;
-  const canJoin =
-    !isJoined && !isFull && tournament.status !== 'completed';
+  const canJoin = !isJoined && !isFull && tournament.status !== 'completed';
+  const availableSeats = tournament.maxTeams - tournament.registeredTeams;
 
   function handleJoin() {
     if (!canJoin) return;
-    if (tournament.entryFee > 0) {
-      Alert.alert(
-        'Confirm Entry',
-        `Entry fee: ₹${tournament.entryFee}\n\nJoin "${tournament.name}"?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Join',
-            onPress: () => {
-              if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              onJoin(tournament.id);
-            },
-          },
-        ]
-      );
-    } else {
-      if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      onJoin(tournament.id);
-    }
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onJoin(tournament);
   }
 
   const formattedDate = (() => {
     try {
-      const d = new Date(tournament.date);
-      return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+      return new Date(tournament.date).toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+      });
     } catch {
       return tournament.date;
     }
@@ -118,29 +103,39 @@ export function TournamentCard({ tournament, isJoined, onJoin }: Props) {
             Squad {tournament.teamSize}v{tournament.teamSize}
           </Text>
         </View>
+        {availableSeats <= 5 && availableSeats > 0 && !isJoined && !isFull && (
+          <View style={styles.metaItem}>
+            <Ionicons name="alert-circle-outline" size={12} color="#EAB308" />
+            <Text style={[styles.metaText, { color: '#EAB308' }]}>
+              {availableSeats} left!
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Divider */}
       <View style={[styles.divider, { backgroundColor: c.border }]} />
 
-      {/* Fee / Prize row */}
+      {/* Fee / Prize / Teams row */}
       <View style={styles.statsRow}>
         <View style={styles.statItem}>
           <Text style={[styles.statLabel, { color: c.mutedForeground }]}>ENTRY</Text>
-          <Text style={[styles.statValue, { color: c.foreground }]}>
+          <Text style={[styles.statValue, { color: tournament.entryFee > 0 ? c.primary : '#22C55E' }]}>
             {tournament.entryFee === 0 ? 'FREE' : `₹${tournament.entryFee}`}
           </Text>
         </View>
         <View style={[styles.statDivider, { backgroundColor: c.border }]} />
         <View style={styles.statItem}>
           <Text style={[styles.statLabel, { color: c.mutedForeground }]}>PRIZE POOL</Text>
-          <Text style={[styles.statValue, { color: c.accent }]}>₹{tournament.prizePool.toLocaleString()}</Text>
+          <Text style={[styles.statValue, { color: c.accent }]}>
+            ₹{tournament.prizePool.toLocaleString()}
+          </Text>
         </View>
         <View style={[styles.statDivider, { backgroundColor: c.border }]} />
         <View style={styles.statItem}>
-          <Text style={[styles.statLabel, { color: c.mutedForeground }]}>TEAMS</Text>
+          <Text style={[styles.statLabel, { color: c.mutedForeground }]}>SEATS</Text>
           <Text style={[styles.statValue, { color: isFull ? '#EF4444' : c.foreground }]}>
-            {tournament.registeredTeams}/{tournament.maxTeams}
+            {tournament.maxTeams - tournament.registeredTeams}/{tournament.maxTeams}
           </Text>
         </View>
       </View>
@@ -169,6 +164,9 @@ export function TournamentCard({ tournament, isJoined, onJoin }: Props) {
             },
           ]}
         >
+          {tournament.entryFee > 0 && canJoin && (
+            <MaterialCommunityIcons name="currency-inr" size={13} color={c.primaryForeground} />
+          )}
           <Text
             style={[
               styles.joinText,
@@ -181,7 +179,7 @@ export function TournamentCard({ tournament, isJoined, onJoin }: Props) {
               },
             ]}
           >
-            {isJoined ? 'Registered' : isFull ? 'Full' : tournament.status === 'completed' ? 'Ended' : 'Join Now'}
+            {isJoined ? '✓ Registered' : isFull ? 'Full' : tournament.status === 'completed' ? 'Ended' : 'Join Now'}
           </Text>
         </Pressable>
       </View>
@@ -212,83 +210,46 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     gap: 4,
   },
-  dot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-  },
-  pillText: {
-    fontSize: 10,
-    fontFamily: 'Inter_700Bold',
-    letterSpacing: 0.5,
-  },
-  name: {
-    fontSize: 18,
-    fontFamily: 'Inter_700Bold',
-    marginBottom: 6,
-  },
+  dot: { width: 5, height: 5, borderRadius: 3 },
+  pillText: { fontSize: 10, fontFamily: 'Inter_700Bold', letterSpacing: 0.5 },
+  name: { fontSize: 18, fontFamily: 'Inter_700Bold', marginBottom: 6 },
   metaRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
     marginBottom: 12,
   },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  metaText: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-  },
-  divider: {
-    height: 1,
-    marginBottom: 12,
-  },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaText: { fontSize: 12, fontFamily: 'Inter_400Regular' },
+  divider: { height: 1, marginBottom: 12 },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 14,
   },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statDivider: {
-    width: 1,
-    height: 28,
-  },
+  statItem: { flex: 1, alignItems: 'center' },
+  statDivider: { width: 1, height: 28 },
   statLabel: {
     fontSize: 9,
     fontFamily: 'Inter_600SemiBold',
     letterSpacing: 0.5,
     marginBottom: 2,
   },
-  statValue: {
-    fontSize: 15,
-    fontFamily: 'Inter_700Bold',
-  },
+  statValue: { fontSize: 15, fontFamily: 'Inter_700Bold' },
   bottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  dateRow: {
+  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  dateText: { fontSize: 12, fontFamily: 'Inter_400Regular' },
+  joinBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-  },
-  dateText: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-  },
-  joinBtn: {
-    paddingHorizontal: 18,
+    gap: 4,
+    paddingHorizontal: 16,
     paddingVertical: 9,
     borderRadius: 10,
   },
-  joinText: {
-    fontSize: 13,
-    fontFamily: 'Inter_700Bold',
-  },
+  joinText: { fontSize: 13, fontFamily: 'Inter_700Bold' },
 });

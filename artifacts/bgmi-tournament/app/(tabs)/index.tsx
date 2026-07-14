@@ -15,7 +15,8 @@ import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/context/AuthContext';
 import { useTournaments } from '@/context/TournamentContext';
 import { TournamentCard } from '@/components/TournamentCard';
-import type { GameType, TournamentStatus } from '@/context/TournamentContext';
+import { PaymentModal } from '@/components/PaymentModal';
+import type { GameType, Tournament, TournamentStatus } from '@/context/TournamentContext';
 
 type GameFilter = 'All' | GameType;
 type StatusFilter = 'All' | TournamentStatus;
@@ -38,6 +39,7 @@ export default function LobbyScreen() {
   const [gameFilter, setGameFilter] = useState<GameFilter>('All');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
   const [refreshing, setRefreshing] = useState(false);
+  const [payingTournament, setPayingTournament] = useState<Tournament | null>(null);
 
   const filtered = tournaments.filter((t) => {
     if (gameFilter !== 'All' && t.game !== gameFilter) return false;
@@ -53,6 +55,20 @@ export default function LobbyScreen() {
   function handleRefresh() {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 800);
+  }
+
+  /**
+   * Unified join handler.
+   * Free tournaments → join directly.
+   * Paid tournaments → open payment modal.
+   */
+  function handleJoin(tournament: Tournament) {
+    if (joinedIds.includes(tournament.id)) return;
+    if (tournament.entryFee === 0) {
+      joinTournament(tournament.id);
+    } else {
+      setPayingTournament(tournament);
+    }
   }
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
@@ -88,10 +104,7 @@ export default function LobbyScreen() {
               <Pressable
                 key={g}
                 onPress={() => setGameFilter(g)}
-                style={[
-                  styles.gameTab,
-                  active && { backgroundColor: activeColor },
-                ]}
+                style={[styles.gameTab, active && { backgroundColor: activeColor }]}
               >
                 <Text style={[styles.gameTabText, { color: active ? '#fff' : c.mutedForeground }]}>
                   {g === 'FreeFire' ? 'Free Fire' : g}
@@ -101,7 +114,7 @@ export default function LobbyScreen() {
           })}
         </View>
 
-        {/* Status filter chips */}
+        {/* Status chips */}
         <View style={styles.statusRow}>
           {STATUS_FILTERS.map((sf) => {
             const active = statusFilter === sf.value;
@@ -134,7 +147,7 @@ export default function LobbyScreen() {
           <TournamentCard
             tournament={item}
             isJoined={joinedIds.includes(item.id)}
-            onJoin={joinTournament}
+            onJoin={handleJoin}
           />
         )}
         contentContainerStyle={styles.listContent}
@@ -156,6 +169,14 @@ export default function LobbyScreen() {
           </View>
         }
       />
+
+      {/* Payment modal — rendered at screen level, outside the FlatList */}
+      {payingTournament && (
+        <PaymentModal
+          tournament={payingTournament}
+          onClose={() => setPayingTournament(null)}
+        />
+      )}
     </View>
   );
 }
@@ -169,21 +190,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 16,
   },
-  headerGreeting: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-  },
-  headerName: {
-    fontSize: 20,
-    fontFamily: 'Inter_700Bold',
-  },
-  logoutBtn: {
-    padding: 4,
-  },
-  filterContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 8,
-  },
+  headerGreeting: { fontSize: 13, fontFamily: 'Inter_400Regular' },
+  headerName: { fontSize: 20, fontFamily: 'Inter_700Bold' },
+  logoutBtn: { padding: 4 },
+  filterContainer: { paddingHorizontal: 16, marginBottom: 8 },
   gameFilterRow: {
     flexDirection: 'row',
     borderRadius: 12,
@@ -196,41 +206,22 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
   },
-  gameTabText: {
-    fontSize: 13,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  statusRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
+  gameTabText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  statusRow: { flexDirection: 'row', gap: 8 },
   statusChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
   },
-  statusChipText: {
-    fontSize: 12,
-    fontFamily: 'Inter_500Medium',
-  },
-  listContent: {
-    paddingTop: 8,
-    paddingBottom: 120,
-  },
+  statusChipText: { fontSize: 12, fontFamily: 'Inter_500Medium' },
+  listContent: { paddingTop: 8, paddingBottom: 120 },
   empty: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 80,
     gap: 8,
   },
-  emptyTitle: {
-    fontSize: 17,
-    fontFamily: 'Inter_600SemiBold',
-    marginTop: 8,
-  },
-  emptyText: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-  },
+  emptyTitle: { fontSize: 17, fontFamily: 'Inter_600SemiBold', marginTop: 8 },
+  emptyText: { fontSize: 13, fontFamily: 'Inter_400Regular' },
 });

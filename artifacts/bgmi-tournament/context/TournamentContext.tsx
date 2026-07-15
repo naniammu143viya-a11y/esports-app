@@ -71,6 +71,8 @@ interface TournamentContextType {
   confirmPayment: (tournamentId: string, amount: number, player: PlayerInfo) => Promise<string>;
   getRegistrations: (tournamentId: string) => Registration[];
   updateRoomDetails: (id: string, roomId: string, password: string) => void;
+  /** Admin: change the max player slots for a tournament */
+  updateTournamentSlots: (id: string, newMax: number) => void;
   addTournament: (t: Omit<Tournament, 'id' | 'registeredTeams'>) => void;
 }
 
@@ -253,6 +255,12 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     persistTournaments(tournaments.map((t) => (t.id === id ? { ...t, roomId, password } : t)));
   }
 
+  // ─── Admin: update player slot limit ─────────────────────────────────────
+  function updateTournamentSlots(id: string, newMax: number) {
+    const clamped = Math.max(newMax, 1);
+    persistTournaments(tournaments.map((t) => (t.id === id ? { ...t, maxTeams: clamped } : t)));
+  }
+
   function addTournament(t: Omit<Tournament, 'id' | 'registeredTeams'>) {
     const newT: Tournament = {
       ...t,
@@ -267,7 +275,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       value={{
         tournaments, joinedIds, payments, registrations,
         joinFreeWithPlayer, joinTournament, confirmPayment,
-        getRegistrations, updateRoomDetails, addTournament,
+        getRegistrations, updateRoomDetails, updateTournamentSlots, addTournament,
       }}
     >
       {children}

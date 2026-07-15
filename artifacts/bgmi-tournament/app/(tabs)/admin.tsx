@@ -120,9 +120,11 @@ function RoomEditorCard({
   onViewPlayers: (t: Tournament) => void;
 }) {
   const c = useColors();
+  const { updateTournamentSlots } = useTournaments();
   const [roomId, setRoomId] = useState(tournament.roomId ?? '');
   const [password, setPassword] = useState(tournament.password ?? '');
   const [saved, setSaved] = useState(false);
+  const [slots, setSlots] = useState(tournament.maxTeams);
 
   function handleSave() {
     if (!roomId.trim()) { Alert.alert('Error', 'Room ID cannot be empty'); return; }
@@ -130,6 +132,13 @@ function RoomEditorCard({
     setSaved(true);
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  function changeSlots(delta: number) {
+    const next = Math.max(tournament.registeredTeams, slots + delta);
+    setSlots(next);
+    updateTournamentSlots(tournament.id, next);
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }
 
   const statusColor =
@@ -165,9 +174,36 @@ function RoomEditorCard({
         {tournament.name}
       </Text>
       <Text style={[styles.roomCardMeta, { color: c.mutedForeground }]}>
-        {tournament.map} · {tournament.registeredTeams}/{tournament.maxTeams} teams
-        {tournament.entryFee > 0 ? ` · ₹${tournament.entryFee} entry` : ' · Free entry'}
+        {tournament.map} · {tournament.entryFee > 0 ? `₹${tournament.entryFee} entry` : 'Free entry'}
       </Text>
+
+      {/* Slot manager */}
+      <View style={[styles.slotRow, { backgroundColor: c.muted }]}>
+        <View style={styles.slotLeft}>
+          <Ionicons name="people-outline" size={14} color={c.mutedForeground} />
+          <Text style={[styles.slotLabel, { color: c.mutedForeground }]}>Player Slots</Text>
+        </View>
+        <View style={styles.slotControls}>
+          <Pressable onPress={() => changeSlots(-5)} style={[styles.slotBtn, { backgroundColor: c.card }]}>
+            <Text style={[styles.slotBtnText, { color: c.mutedForeground }]}>−5</Text>
+          </Pressable>
+          <View style={styles.slotCountWrap}>
+            <Text style={[styles.slotFilled, { color: tournament.registeredTeams >= slots ? '#EF4444' : '#22C55E' }]}>
+              {tournament.registeredTeams}
+            </Text>
+            <Text style={[styles.slotSep, { color: c.mutedForeground }]}>/</Text>
+            <Text style={[styles.slotMax, { color: c.foreground }]}>{slots}</Text>
+          </View>
+          <Pressable onPress={() => changeSlots(5)} style={[styles.slotBtn, { backgroundColor: c.card }]}>
+            <Text style={[styles.slotBtnText, { color: c.primary }]}>+5</Text>
+          </Pressable>
+        </View>
+        {tournament.registeredTeams >= slots && (
+          <View style={styles.fullPill}>
+            <Text style={styles.fullPillText}>FULL</Text>
+          </View>
+        )}
+      </View>
 
       {/* Prize structure summary */}
       {hasPrizeStructure && (
@@ -262,6 +298,7 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
   const [entryType, setEntryType] = useState<EntryType>('PAID');
   const [entryFee, setEntryFee] = useState('');
   const [prizePool, setPrizePool] = useState('');
+  const [maxPlayers, setMaxPlayers] = useState(20);
   // Prize structure
   const [perKillPrize, setPerKillPrize] = useState('');
   const [rank1Prize, setRank1Prize] = useState('');
@@ -281,7 +318,7 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
       prizePool: parseInt(prizePool, 10) || 0,
       status,
       teamSize: 4,
-      maxTeams: 20,
+      maxTeams: maxPlayers,
       date: date.trim(),
       time: time.trim(),
       perKillPrize: parseInt(perKillPrize, 10) || 0,
@@ -428,6 +465,56 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
         </View>
       </View>
 
+      {/* Player slots stepper */}
+      <Text style={[styles.fLabel, { color: c.mutedForeground }]}>PLAYER SLOTS (TOTAL LIMIT)</Text>
+      <View style={[styles.slotFormRow, { backgroundColor: c.muted }]}>
+        <Pressable
+          onPress={() => setMaxPlayers((v) => Math.max(1, v - 5))}
+          style={[styles.slotFormBtn, { backgroundColor: c.card }]}
+        >
+          <Text style={[styles.slotFormBtnText, { color: c.mutedForeground }]}>−5</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setMaxPlayers((v) => Math.max(1, v - 1))}
+          style={[styles.slotFormBtn, { backgroundColor: c.card }]}
+        >
+          <Text style={[styles.slotFormBtnText, { color: c.mutedForeground }]}>−1</Text>
+        </Pressable>
+        <Text style={[styles.slotFormCount, { color: c.foreground }]}>{maxPlayers}</Text>
+        <Pressable
+          onPress={() => setMaxPlayers((v) => v + 1)}
+          style={[styles.slotFormBtn, { backgroundColor: c.card }]}
+        >
+          <Text style={[styles.slotFormBtnText, { color: c.primary }]}>+1</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setMaxPlayers((v) => v + 5)}
+          style={[styles.slotFormBtn, { backgroundColor: c.card }]}
+        >
+          <Text style={[styles.slotFormBtnText, { color: c.primary }]}>+5</Text>
+        </Pressable>
+      </View>
+      {/* Quick presets */}
+      <View style={styles.slotPresets}>
+        {[10, 20, 30, 50, 100].map((n) => (
+          <Pressable
+            key={n}
+            onPress={() => setMaxPlayers(n)}
+            style={[
+              styles.slotPreset,
+              {
+                backgroundColor: maxPlayers === n ? 'rgba(255,107,0,0.15)' : c.muted,
+                borderColor: maxPlayers === n ? c.primary : 'transparent',
+              },
+            ]}
+          >
+            <Text style={[styles.slotPresetText, { color: maxPlayers === n ? c.primary : c.mutedForeground }]}>
+              {n}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
       {/* ── Prize Structure ── */}
       <View style={[styles.prizeSectionHeader, { borderColor: c.border }]}>
         <Ionicons name="trophy-outline" size={15} color="#EAB308" />
@@ -537,7 +624,7 @@ export default function AdminScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const router = useRouter();
-  const { tournaments, updateRoomDetails, addTournament, getRegistrations } = useTournaments();
+  const { tournaments, updateRoomDetails, updateTournamentSlots, addTournament, getRegistrations } = useTournaments();
   const { withdrawalRequests, markWithdrawalPaid } = useWallet();
   const [showAddForm, setShowAddForm] = useState(false);
   const [viewingTournament, setViewingTournament] = useState<Tournament | null>(null);
@@ -758,6 +845,44 @@ const styles = StyleSheet.create({
   rankPrizeRow: { flexDirection: 'row', gap: 8 },
   rankPrizeLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', marginBottom: 5, marginTop: 0 },
   addSubmitBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 20 },
+  // Slot form stepper
+  slotFormRow: {
+    flexDirection: 'row', alignItems: 'center', borderRadius: 12,
+    padding: 4, gap: 4, marginBottom: 8,
+  },
+  slotFormBtn: {
+    flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8,
+  },
+  slotFormBtnText: { fontSize: 13, fontFamily: 'Inter_700Bold' },
+  slotFormCount: {
+    flex: 2, textAlign: 'center', fontSize: 22, fontFamily: 'Inter_700Bold',
+  },
+  slotPresets: { flexDirection: 'row', gap: 6, marginBottom: 4 },
+  slotPreset: {
+    flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8, borderWidth: 1.5,
+  },
+  slotPresetText: { fontSize: 12, fontFamily: 'Inter_700Bold' },
+  // Slot row on room card
+  slotRow: {
+    flexDirection: 'row', alignItems: 'center', borderRadius: 10,
+    paddingHorizontal: 10, paddingVertical: 8, marginBottom: 10, gap: 8,
+  },
+  slotLeft: { flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1 },
+  slotLabel: { fontSize: 12, fontFamily: 'Inter_500Medium' },
+  slotControls: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  slotBtn: {
+    paddingHorizontal: 8, paddingVertical: 5, borderRadius: 7,
+  },
+  slotBtnText: { fontSize: 12, fontFamily: 'Inter_700Bold' },
+  slotCountWrap: { flexDirection: 'row', alignItems: 'baseline', gap: 1 },
+  slotFilled: { fontSize: 14, fontFamily: 'Inter_700Bold' },
+  slotSep: { fontSize: 13, fontFamily: 'Inter_400Regular' },
+  slotMax: { fontSize: 14, fontFamily: 'Inter_700Bold' },
+  fullPill: {
+    backgroundColor: 'rgba(239,68,68,0.15)', borderRadius: 5,
+    paddingHorizontal: 6, paddingVertical: 2,
+  },
+  fullPillText: { fontSize: 9, fontFamily: 'Inter_700Bold', color: '#EF4444', letterSpacing: 0.5 },
   addSubmitText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
 
   // Withdrawal section

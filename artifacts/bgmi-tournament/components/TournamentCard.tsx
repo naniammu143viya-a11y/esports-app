@@ -179,7 +179,7 @@ export function TournamentCard({ tournament, isJoined, onJoin }: Props) {
               },
             ]}
           >
-            {isJoined ? '✓ Registered' : isFull ? 'Full' : tournament.status === 'completed' ? 'Ended' : 'Join Now'}
+            {isJoined ? '✓ Registered' : isFull ? 'Match Full' : tournament.status === 'completed' ? 'Ended' : 'Join Now'}
           </Text>
         </Pressable>
       </View>

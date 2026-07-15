@@ -33,7 +33,7 @@ export default function LobbyScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
-  const { tournaments, joinedIds, joinTournament } = useTournaments();
+  const { tournaments, joinedIds, joinFreeWithPlayer } = useTournaments();
   const router = useRouter();
 
   const [gameFilter, setGameFilter] = useState<GameFilter>('All');
@@ -59,13 +59,18 @@ export default function LobbyScreen() {
 
   /**
    * Unified join handler.
-   * Free tournaments → join directly.
-   * Paid tournaments → open payment modal.
+   * Free (₹0) → instant join, registers player so admin can see them.
+   * Paid (₹>0) → open payment modal.
    */
-  function handleJoin(tournament: Tournament) {
+  async function handleJoin(tournament: Tournament) {
     if (joinedIds.includes(tournament.id)) return;
     if (tournament.entryFee === 0) {
-      joinTournament(tournament.id);
+      await joinFreeWithPlayer(tournament.id, {
+        username: user?.username ?? 'Unknown',
+        mobile: user?.mobile ?? '',
+        gameId: user?.gameId ?? '',
+        gameType: user?.gameType ?? tournament.game,
+      });
     } else {
       setPayingTournament(tournament);
     }
@@ -78,12 +83,8 @@ export default function LobbyScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 10 }]}>
         <View>
-          <Text style={[styles.headerGreeting, { color: c.mutedForeground }]}>
-            Welcome back,
-          </Text>
-          <Text style={[styles.headerName, { color: c.foreground }]}>
-            {user?.username ?? 'Player'}
-          </Text>
+          <Text style={[styles.headerGreeting, { color: c.mutedForeground }]}>Welcome back,</Text>
+          <Text style={[styles.headerName, { color: c.foreground }]}>{user?.username ?? 'Player'}</Text>
         </View>
         <Pressable
           onPress={handleLogout}
@@ -114,7 +115,6 @@ export default function LobbyScreen() {
           })}
         </View>
 
-        {/* Status chips */}
         <View style={styles.statusRow}>
           {STATUS_FILTERS.map((sf) => {
             const active = statusFilter === sf.value;
@@ -153,24 +153,17 @@ export default function LobbyScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={c.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.primary} />
         }
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="trophy-outline" size={44} color={c.mutedForeground} />
             <Text style={[styles.emptyTitle, { color: c.foreground }]}>No Tournaments</Text>
-            <Text style={[styles.emptyText, { color: c.mutedForeground }]}>
-              No tournaments match your filters
-            </Text>
+            <Text style={[styles.emptyText, { color: c.mutedForeground }]}>No tournaments match your filters</Text>
           </View>
         }
       />
 
-      {/* Payment modal — rendered at screen level, outside the FlatList */}
       {payingTournament && (
         <PaymentModal
           tournament={payingTournament}
@@ -184,44 +177,21 @@ export default function LobbyScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingBottom: 16,
   },
   headerGreeting: { fontSize: 13, fontFamily: 'Inter_400Regular' },
   headerName: { fontSize: 20, fontFamily: 'Inter_700Bold' },
   logoutBtn: { padding: 4 },
   filterContainer: { paddingHorizontal: 16, marginBottom: 8 },
-  gameFilterRow: {
-    flexDirection: 'row',
-    borderRadius: 12,
-    padding: 3,
-    marginBottom: 10,
-  },
-  gameTab: {
-    flex: 1,
-    paddingVertical: 9,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
+  gameFilterRow: { flexDirection: 'row', borderRadius: 12, padding: 3, marginBottom: 10 },
+  gameTab: { flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: 'center' },
   gameTabText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
   statusRow: { flexDirection: 'row', gap: 8 },
-  statusChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
+  statusChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
   statusChipText: { fontSize: 12, fontFamily: 'Inter_500Medium' },
   listContent: { paddingTop: 8, paddingBottom: 120 },
-  empty: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 80,
-    gap: 8,
-  },
+  empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 80, gap: 8 },
   emptyTitle: { fontSize: 17, fontFamily: 'Inter_600SemiBold', marginTop: 8 },
   emptyText: { fontSize: 13, fontFamily: 'Inter_400Regular' },
 });

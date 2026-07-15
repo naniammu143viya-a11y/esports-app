@@ -14,14 +14,98 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/context/AuthContext';
 import { useTournaments } from '@/context/TournamentContext';
-import { useWallet } from '@/context/WalletContext';
+import { useWallet, ADMIN_UPI_KEY } from '@/context/WalletContext';
 import { GameBadge } from '@/components/GameBadge';
 import { RegisteredPlayersModal } from '@/components/RegisteredPlayersModal';
 import type { GameType, TournamentStatus, Tournament } from '@/context/TournamentContext';
 import type { WithdrawalRequest } from '@/context/WalletContext';
+
+// ─── Admin UPI Settings Card ──────────────────────────────────────────────────
+function AdminUpiCard() {
+  const c = useColors();
+  const [upiId, setUpiId] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [draftUpi, setDraftUpi] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(ADMIN_UPI_KEY).then((v) => {
+      if (v) { setUpiId(v); setDraftUpi(v); }
+    });
+  }, []);
+
+  async function handleSave() {
+    if (!draftUpi.trim()) { Alert.alert('Error', 'UPI ID cannot be empty.'); return; }
+    await AsyncStorage.setItem(ADMIN_UPI_KEY, draftUpi.trim());
+    setUpiId(draftUpi.trim());
+    setEditing(false);
+    setSaved(true);
+    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setTimeout(() => setSaved(false), 2500);
+  }
+
+  return (
+    <View style={[styles.upiCard, { backgroundColor: c.card, borderColor: c.border }]}>
+      <View style={styles.upiCardHeader}>
+        <View style={[styles.upiIconWrap, { backgroundColor: 'rgba(255,107,0,0.12)' }]}>
+          <Ionicons name="wallet-outline" size={18} color={c.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.upiCardTitle, { color: c.foreground }]}>Payment UPI ID</Text>
+          <Text style={[styles.upiCardSub, { color: c.mutedForeground }]}>
+            Used in QR code & deep links for all players
+          </Text>
+        </View>
+        {saved && (
+          <View style={styles.savedBadge}>
+            <Ionicons name="checkmark-circle" size={13} color="#22C55E" />
+            <Text style={styles.savedBadgeText}>Saved</Text>
+          </View>
+        )}
+      </View>
+
+      {editing ? (
+        <View style={styles.upiEditRow}>
+          <View style={[styles.upiInput, { backgroundColor: c.input, borderColor: c.primary }]}>
+            <TextInput
+              style={[styles.upiInputText, { color: c.foreground }]}
+              value={draftUpi}
+              onChangeText={setDraftUpi}
+              placeholder="yourname@upi or 9876543210"
+              placeholderTextColor={c.mutedForeground}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoFocus
+            />
+          </View>
+          <Pressable
+            onPress={handleSave}
+            style={({ pressed }) => [styles.upiSaveBtn, { backgroundColor: c.primary, opacity: pressed ? 0.8 : 1 }]}
+          >
+            <Text style={styles.upiSaveBtnText}>Save</Text>
+          </Pressable>
+          <Pressable onPress={() => { setEditing(false); setDraftUpi(upiId); }} style={styles.upiCancelBtn}>
+            <Ionicons name="close" size={18} color={c.mutedForeground} />
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable
+          onPress={() => setEditing(true)}
+          style={[styles.upiDisplay, { backgroundColor: c.muted }]}
+        >
+          <Text style={[styles.upiDisplayText, { color: upiId ? c.foreground : c.mutedForeground }]} numberOfLines={1}>
+            {upiId || 'Tap to set your UPI ID…'}
+          </Text>
+          <Ionicons name="pencil-outline" size={15} color={c.mutedForeground} />
+        </Pressable>
+      )}
+    </View>
+  );
+}
 
 // ─── Room Editor Card ─────────────────────────────────────────────────────────
 function RoomEditorCard({
@@ -41,10 +125,7 @@ function RoomEditorCard({
   const [saved, setSaved] = useState(false);
 
   function handleSave() {
-    if (!roomId.trim()) {
-      Alert.alert('Error', 'Room ID cannot be empty');
-      return;
-    }
+    if (!roomId.trim()) { Alert.alert('Error', 'Room ID cannot be empty'); return; }
     onSave(tournament.id, roomId.trim(), password.trim());
     setSaved(true);
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -55,6 +136,8 @@ function RoomEditorCard({
     tournament.status === 'ongoing' ? '#22C55E'
     : tournament.status === 'upcoming' ? '#EAB308'
     : '#6B7280';
+
+  const hasPrizeStructure = tournament.perKillPrize > 0 || tournament.rankPrizes?.rank1 > 0;
 
   return (
     <View style={[styles.roomCard, { backgroundColor: c.card, borderColor: c.border }]}>
@@ -71,16 +154,36 @@ function RoomEditorCard({
             {tournament.status === 'ongoing' ? 'LIVE' : tournament.status === 'upcoming' ? 'UPCOMING' : 'ENDED'}
           </Text>
         </View>
+        {tournament.entryFee === 0 && (
+          <View style={styles.freePill}>
+            <Text style={styles.freePillText}>FREE</Text>
+          </View>
+        )}
       </View>
 
       <Text style={[styles.roomCardName, { color: c.foreground }]} numberOfLines={1}>
         {tournament.name}
       </Text>
       <Text style={[styles.roomCardMeta, { color: c.mutedForeground }]}>
-        {tournament.map} · {tournament.registeredTeams}/{tournament.maxTeams} teams · ₹{tournament.entryFee === 0 ? 'FREE' : tournament.entryFee}
+        {tournament.map} · {tournament.registeredTeams}/{tournament.maxTeams} teams
+        {tournament.entryFee > 0 ? ` · ₹${tournament.entryFee} entry` : ' · Free entry'}
       </Text>
 
-      {/* View Registered Players button */}
+      {/* Prize structure summary */}
+      {hasPrizeStructure && (
+        <View style={[styles.prizeBar, { backgroundColor: 'rgba(234,179,8,0.06)', borderColor: 'rgba(234,179,8,0.2)' }]}>
+          <Ionicons name="trophy-outline" size={12} color="#EAB308" />
+          <Text style={styles.prizeBarText}>
+            {tournament.perKillPrize > 0 ? `₹${tournament.perKillPrize}/kill` : ''}
+            {tournament.perKillPrize > 0 && tournament.rankPrizes?.rank1 > 0 ? '  ·  ' : ''}
+            {tournament.rankPrizes?.rank1 > 0 ? `🥇₹${tournament.rankPrizes.rank1}` : ''}
+            {tournament.rankPrizes?.rank2 > 0 ? `  🥈₹${tournament.rankPrizes.rank2}` : ''}
+            {tournament.rankPrizes?.rank3 > 0 ? `  🥉₹${tournament.rankPrizes.rank3}` : ''}
+          </Text>
+        </View>
+      )}
+
+      {/* View Players button */}
       <Pressable
         onPress={() => onViewPlayers(tournament)}
         style={({ pressed }) => [
@@ -92,24 +195,16 @@ function RoomEditorCard({
           },
         ]}
       >
-        <Ionicons
-          name="people-outline"
-          size={14}
-          color={registrationCount > 0 ? c.primary : c.mutedForeground}
-        />
+        <Ionicons name="people-outline" size={14} color={registrationCount > 0 ? c.primary : c.mutedForeground} />
         <Text style={[styles.viewPlayersBtnText, { color: registrationCount > 0 ? c.primary : c.mutedForeground }]}>
           {registrationCount > 0
-            ? `View ${registrationCount} Registered Player${registrationCount !== 1 ? 's' : ''}`
-            : 'No paid players yet'}
+            ? `View ${registrationCount} Player${registrationCount !== 1 ? 's' : ''}`
+            : 'No players yet'}
         </Text>
-        <Ionicons
-          name="chevron-forward"
-          size={14}
-          color={registrationCount > 0 ? c.primary : c.mutedForeground}
-        />
+        <Ionicons name="chevron-forward" size={14} color={registrationCount > 0 ? c.primary : c.mutedForeground} />
       </Pressable>
 
-      {/* Room ID input */}
+      {/* Room ID */}
       <View style={[styles.roomInputWrap, { backgroundColor: c.input, borderColor: c.border }]}>
         <MaterialCommunityIcons name="door-open" size={14} color={c.mutedForeground} />
         <TextInput
@@ -122,7 +217,6 @@ function RoomEditorCard({
           autoCorrect={false}
         />
       </View>
-
       <View style={[styles.roomInputWrap, { backgroundColor: c.input, borderColor: c.border }]}>
         <MaterialCommunityIcons name="lock-outline" size={14} color={c.mutedForeground} />
         <TextInput
@@ -135,7 +229,6 @@ function RoomEditorCard({
           autoCorrect={false}
         />
       </View>
-
       <Pressable
         onPress={handleSave}
         style={({ pressed }) => [
@@ -156,16 +249,24 @@ function RoomEditorCard({
 }
 
 // ─── Add Tournament Form ──────────────────────────────────────────────────────
+type EntryType = 'FREE' | 'PAID';
+
 function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onClose: () => void }) {
   const c = useColors();
   const [game, setGame] = useState<GameType>('BGMI');
   const [name, setName] = useState('');
   const [map, setMap] = useState('');
-  const [entryFee, setEntryFee] = useState('');
-  const [prizePool, setPrizePool] = useState('');
   const [status, setStatus] = useState<TournamentStatus>('upcoming');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
+  const [entryType, setEntryType] = useState<EntryType>('PAID');
+  const [entryFee, setEntryFee] = useState('');
+  const [prizePool, setPrizePool] = useState('');
+  // Prize structure
+  const [perKillPrize, setPerKillPrize] = useState('');
+  const [rank1Prize, setRank1Prize] = useState('');
+  const [rank2Prize, setRank2Prize] = useState('');
+  const [rank3Prize, setRank3Prize] = useState('');
 
   function handleAdd() {
     if (!name.trim() || !map.trim() || !date.trim() || !time.trim()) {
@@ -176,13 +277,19 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
       game,
       name: name.trim(),
       map: map.trim(),
-      entryFee: parseInt(entryFee, 10) || 0,
+      entryFee: entryType === 'FREE' ? 0 : (parseInt(entryFee, 10) || 0),
       prizePool: parseInt(prizePool, 10) || 0,
       status,
       teamSize: 4,
       maxTeams: 20,
       date: date.trim(),
       time: time.trim(),
+      perKillPrize: parseInt(perKillPrize, 10) || 0,
+      rankPrizes: {
+        rank1: parseInt(rank1Prize, 10) || 0,
+        rank2: parseInt(rank2Prize, 10) || 0,
+        rank3: parseInt(rank3Prize, 10) || 0,
+      },
     });
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     onClose();
@@ -194,6 +301,7 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
     <ScrollView
       style={[styles.formCard, { backgroundColor: c.card, borderColor: c.border }]}
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
     >
       <View style={styles.formHeader}>
         <Text style={[styles.formTitle, { color: c.foreground }]}>New Tournament</Text>
@@ -202,6 +310,7 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
         </Pressable>
       </View>
 
+      {/* Game */}
       <Text style={[styles.fLabel, { color: c.mutedForeground }]}>GAME</Text>
       <View style={[styles.gameToggle, { backgroundColor: c.muted }]}>
         {(['BGMI', 'FreeFire'] as GameType[]).map((g) => {
@@ -218,17 +327,18 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
         })}
       </View>
 
+      {/* Status */}
       <Text style={[styles.fLabel, { color: c.mutedForeground }]}>STATUS</Text>
-      <View style={styles.statusRow}>
+      <View style={styles.chipRow}>
         {statusOpts.map((s) => {
           const active = status === s;
           return (
             <Pressable key={s} onPress={() => setStatus(s)}
-              style={[styles.statusChip, {
+              style={[styles.chip, {
                 borderColor: active ? c.primary : c.border,
                 backgroundColor: active ? 'rgba(255,107,0,0.15)' : 'transparent',
               }]}>
-              <Text style={[styles.statusChipText, { color: active ? c.primary : c.mutedForeground }]}>
+              <Text style={[styles.chipText, { color: active ? c.primary : c.mutedForeground }]}>
                 {s.charAt(0).toUpperCase() + s.slice(1)}
               </Text>
             </Pressable>
@@ -236,13 +346,41 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
         })}
       </View>
 
+      {/* Entry Type */}
+      <Text style={[styles.fLabel, { color: c.mutedForeground }]}>ENTRY TYPE</Text>
+      <View style={[styles.entryToggle, { backgroundColor: c.muted }]}>
+        {(['FREE', 'PAID'] as EntryType[]).map((et) => {
+          const active = entryType === et;
+          return (
+            <Pressable
+              key={et}
+              onPress={() => setEntryType(et)}
+              style={[
+                styles.entryToggleBtn,
+                active && {
+                  backgroundColor: et === 'FREE' ? 'rgba(34,197,94,0.85)' : c.primary,
+                },
+              ]}
+            >
+              <Ionicons
+                name={et === 'FREE' ? 'gift-outline' : 'card-outline'}
+                size={14}
+                color={active ? '#fff' : c.mutedForeground}
+              />
+              <Text style={[styles.entryToggleText, { color: active ? '#fff' : c.mutedForeground }]}>
+                {et}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* Core fields */}
       {[
         { label: 'TOURNAMENT NAME', val: name, set: setName, placeholder: 'e.g. Clash Royale Cup', key: 'name' },
         { label: 'MAP', val: map, set: setMap, placeholder: 'e.g. Erangel', key: 'map' },
         { label: 'DATE (YYYY-MM-DD)', val: date, set: setDate, placeholder: '2026-07-20', key: 'date' },
         { label: 'TIME (HH:MM)', val: time, set: setTime, placeholder: '20:00', key: 'time' },
-        { label: 'ENTRY FEE (₹)', val: entryFee, set: setEntryFee, placeholder: '0 for free', key: 'fee', numeric: true },
-        { label: 'PRIZE POOL (₹)', val: prizePool, set: setPrizePool, placeholder: '5000', key: 'prize', numeric: true },
       ].map((field) => (
         <View key={field.key}>
           <Text style={[styles.fLabel, { color: c.mutedForeground }]}>{field.label}</Text>
@@ -253,12 +391,84 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
               placeholderTextColor={c.mutedForeground}
               value={field.val}
               onChangeText={field.set}
-              keyboardType={(field as any).numeric ? 'number-pad' : 'default'}
               autoCorrect={false}
             />
           </View>
         </View>
       ))}
+
+      {/* Entry fee — only for PAID */}
+      {entryType === 'PAID' && (
+        <View>
+          <Text style={[styles.fLabel, { color: c.mutedForeground }]}>ENTRY FEE (₹)</Text>
+          <View style={[styles.fInput, { backgroundColor: c.input, borderColor: c.border }]}>
+            <TextInput
+              style={[styles.fInputText, { color: c.foreground }]}
+              placeholder="e.g. 50"
+              placeholderTextColor={c.mutedForeground}
+              value={entryFee}
+              onChangeText={setEntryFee}
+              keyboardType="number-pad"
+            />
+          </View>
+        </View>
+      )}
+
+      <View>
+        <Text style={[styles.fLabel, { color: c.mutedForeground }]}>PRIZE POOL (₹)</Text>
+        <View style={[styles.fInput, { backgroundColor: c.input, borderColor: c.border }]}>
+          <TextInput
+            style={[styles.fInputText, { color: c.foreground }]}
+            placeholder="e.g. 5000"
+            placeholderTextColor={c.mutedForeground}
+            value={prizePool}
+            onChangeText={setPrizePool}
+            keyboardType="number-pad"
+          />
+        </View>
+      </View>
+
+      {/* ── Prize Structure ── */}
+      <View style={[styles.prizeSectionHeader, { borderColor: c.border }]}>
+        <Ionicons name="trophy-outline" size={15} color="#EAB308" />
+        <Text style={[styles.prizeSectionTitle, { color: c.foreground }]}>Prize Structure</Text>
+        <Text style={[styles.prizeSectionSub, { color: c.mutedForeground }]}>optional</Text>
+      </View>
+
+      <Text style={[styles.fLabel, { color: c.mutedForeground }]}>PER KILL PRIZE (₹)</Text>
+      <View style={[styles.fInput, { backgroundColor: c.input, borderColor: c.border }]}>
+        <TextInput
+          style={[styles.fInputText, { color: c.foreground }]}
+          placeholder="e.g. 5 (₹5 per kill)"
+          placeholderTextColor={c.mutedForeground}
+          value={perKillPrize}
+          onChangeText={setPerKillPrize}
+          keyboardType="number-pad"
+        />
+      </View>
+
+      <Text style={[styles.fLabel, { color: c.mutedForeground }]}>RANK PRIZES (₹)</Text>
+      <View style={styles.rankPrizeRow}>
+        {[
+          { label: '🥇 1st', val: rank1Prize, set: setRank1Prize },
+          { label: '🥈 2nd', val: rank2Prize, set: setRank2Prize },
+          { label: '🥉 3rd', val: rank3Prize, set: setRank3Prize },
+        ].map((r) => (
+          <View key={r.label} style={{ flex: 1 }}>
+            <Text style={[styles.rankPrizeLabel, { color: c.mutedForeground }]}>{r.label}</Text>
+            <View style={[styles.fInput, { backgroundColor: c.input, borderColor: c.border }]}>
+              <TextInput
+                style={[styles.fInputText, { color: c.foreground }]}
+                placeholder="₹0"
+                placeholderTextColor={c.mutedForeground}
+                value={r.val}
+                onChangeText={r.set}
+                keyboardType="number-pad"
+              />
+            </View>
+          </View>
+        ))}
+      </View>
 
       <Pressable
         onPress={handleAdd}
@@ -267,67 +477,43 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
         <Text style={styles.addSubmitText}>Create Tournament</Text>
       </Pressable>
 
-      <View style={{ height: 20 }} />
+      <View style={{ height: 30 }} />
     </ScrollView>
   );
 }
 
-// ─── Withdrawal Request Card ───────────────────────────────────────────────────
-function WithdrawalCard({
-  request,
-  onMarkPaid,
-}: {
-  request: WithdrawalRequest;
-  onMarkPaid: (id: string) => void;
-}) {
+// ─── Withdrawal Card ──────────────────────────────────────────────────────────
+function WithdrawalCard({ request, onMarkPaid }: { request: WithdrawalRequest; onMarkPaid: (id: string) => void }) {
   const c = useColors();
   const isPending = request.status === 'PENDING';
-
   const date = (() => {
     try {
       return new Date(request.requestedAt).toLocaleDateString('en-IN', {
         day: 'numeric', month: 'short', year: 'numeric',
       });
-    } catch {
-      return '';
-    }
+    } catch { return ''; }
   })();
 
   return (
-    <View style={[
-      styles.wdCard,
-      {
-        backgroundColor: c.card,
-        borderColor: isPending ? 'rgba(234,179,8,0.35)' : c.border,
-      },
-    ]}>
+    <View style={[styles.wdCard, { backgroundColor: c.card, borderColor: isPending ? 'rgba(234,179,8,0.35)' : c.border }]}>
       <View style={styles.wdCardTop}>
-        <View style={[
-          styles.wdStatusDot,
-          { backgroundColor: isPending ? '#EAB308' : '#22C55E' },
-        ]} />
+        <View style={[styles.wdDot, { backgroundColor: isPending ? '#EAB308' : '#22C55E' }]} />
         <Text style={[styles.wdUsername, { color: c.foreground }]}>{request.username}</Text>
-        <Text style={[styles.wdAmount, { color: isPending ? '#EAB308' : '#22C55E' }]}>
-          ₹{request.amount.toLocaleString()}
-        </Text>
+        <Text style={[styles.wdAmount, { color: isPending ? '#EAB308' : '#22C55E' }]}>₹{request.amount.toLocaleString()}</Text>
       </View>
-
       <View style={styles.wdMeta}>
-        <View style={styles.wdMetaRow}>
-          <Ionicons name="wallet-outline" size={12} color={c.mutedForeground} />
-          <Text style={[styles.wdMetaText, { color: c.mutedForeground }]}>{request.upiId}</Text>
-        </View>
-        <View style={styles.wdMetaRow}>
-          <Ionicons name="call-outline" size={12} color={c.mutedForeground} />
-          <Text style={[styles.wdMetaText, { color: c.mutedForeground }]}>{request.mobile || '—'}</Text>
-        </View>
-        <View style={styles.wdMetaRow}>
-          <Ionicons name="calendar-outline" size={12} color={c.mutedForeground} />
-          <Text style={[styles.wdMetaText, { color: c.mutedForeground }]}>{date}</Text>
-        </View>
+        {[
+          { icon: 'wallet-outline' as const, text: request.upiId },
+          { icon: 'call-outline' as const, text: request.mobile || '—' },
+          { icon: 'calendar-outline' as const, text: date },
+        ].map((row) => (
+          <View key={row.icon} style={styles.wdMetaRow}>
+            <Ionicons name={row.icon} size={12} color={c.mutedForeground} />
+            <Text style={[styles.wdMetaText, { color: c.mutedForeground }]}>{row.text}</Text>
+          </View>
+        ))}
       </View>
-
-      {isPending && (
+      {isPending ? (
         <Pressable
           onPress={() => onMarkPaid(request.id)}
           style={({ pressed }) => [styles.markPaidBtn, { opacity: pressed ? 0.8 : 1 }]}
@@ -335,9 +521,7 @@ function WithdrawalCard({
           <Ionicons name="checkmark-circle-outline" size={15} color="#fff" />
           <Text style={styles.markPaidText}>Mark as Paid</Text>
         </Pressable>
-      )}
-
-      {!isPending && (
+      ) : (
         <View style={styles.paidBadge}>
           <Ionicons name="checkmark-circle" size={13} color="#22C55E" />
           <Text style={styles.paidBadgeText}>Paid</Text>
@@ -361,14 +545,10 @@ export default function AdminScreen() {
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
   useEffect(() => {
-    if (user !== null && !user.isAdmin) {
-      router.replace('/(tabs)');
-    }
+    if (user !== null && !user.isAdmin) router.replace('/(tabs)');
   }, [user]);
 
-  if (!user?.isAdmin) {
-    return <View style={[styles.root, { backgroundColor: c.background }]} />;
-  }
+  if (!user?.isAdmin) return <View style={[styles.root, { backgroundColor: c.background }]} />;
 
   const activeTournaments = tournaments.filter((t) => t.status !== 'completed');
   const completedTournaments = tournaments.filter((t) => t.status === 'completed');
@@ -389,7 +569,7 @@ export default function AdminScreen() {
         <View>
           <Text style={[styles.headerTitle, { color: c.foreground }]}>Admin Panel</Text>
           <Text style={[styles.headerSub, { color: c.mutedForeground }]}>
-            Manage tournaments, players & payouts
+            Tournaments · Players · Payouts
           </Text>
         </View>
         <Pressable
@@ -423,9 +603,14 @@ export default function AdminScreen() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
-              {tournaments.length} TOURNAMENT{tournaments.length !== 1 ? 'S' : ''}
-            </Text>
+            <>
+              {/* UPI Settings */}
+              <AdminUpiCard />
+
+              <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
+                {tournaments.length} TOURNAMENT{tournaments.length !== 1 ? 'S' : ''}
+              </Text>
+            </>
           }
           ListEmptyComponent={
             <View style={styles.empty}>
@@ -469,7 +654,6 @@ export default function AdminScreen() {
         />
       )}
 
-      {/* Registered players modal */}
       {viewingTournament && (
         <RegisteredPlayersModal
           tournament={viewingTournament}
@@ -484,49 +668,61 @@ export default function AdminScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingBottom: 16,
   },
   headerTitle: { fontSize: 24, fontFamily: 'Inter_700Bold' },
   headerSub: { fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 2 },
-  addBtn: {
-    width: 40, height: 40, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  addBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   listContent: { paddingHorizontal: 16, paddingBottom: 120 },
-  sectionLabel: {
-    fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8, marginBottom: 12,
+  sectionLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8, marginBottom: 12, marginTop: 4 },
+
+  // UPI card
+  upiCard: {
+    borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 20, gap: 12,
   },
+  upiCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  upiIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  upiCardTitle: { fontSize: 14, fontFamily: 'Inter_700Bold' },
+  upiCardSub: { fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 1 },
+  savedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  savedBadgeText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#22C55E' },
+  upiEditRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  upiInput: { flex: 1, borderRadius: 10, borderWidth: 1.5, paddingHorizontal: 12, paddingVertical: 10 },
+  upiInputText: { fontSize: 14, fontFamily: 'Inter_400Regular' },
+  upiSaveBtn: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
+  upiSaveBtnText: { fontSize: 13, fontFamily: 'Inter_700Bold', color: '#fff' },
+  upiCancelBtn: { padding: 6 },
+  upiDisplay: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
+  },
+  upiDisplayText: { fontSize: 14, fontFamily: 'Inter_500Medium', flex: 1, marginRight: 8 },
 
   // Room card
   roomCard: { borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 12 },
-  roomCardTop: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8,
-  },
+  roomCardTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   statusPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   statusText: { fontSize: 10, fontFamily: 'Inter_700Bold', letterSpacing: 0.5 },
-  roomCardName: { fontSize: 15, fontFamily: 'Inter_700Bold', marginBottom: 3 },
-  roomCardMeta: { fontSize: 12, fontFamily: 'Inter_400Regular', marginBottom: 10 },
-
-  // View players button
+  freePill: {
+    backgroundColor: 'rgba(34,197,94,0.15)', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6,
+  },
+  freePillText: { fontSize: 10, fontFamily: 'Inter_700Bold', color: '#22C55E', letterSpacing: 0.5 },
+  roomCardName: { fontSize: 15, fontFamily: 'Inter_700Bold', marginBottom: 2 },
+  roomCardMeta: { fontSize: 12, fontFamily: 'Inter_400Regular', marginBottom: 8 },
+  prizeBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 8, borderWidth: 1,
+    paddingHorizontal: 10, paddingVertical: 6, marginBottom: 10,
+  },
+  prizeBarText: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#EAB308', flex: 1 },
   viewPlayersBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    marginBottom: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 10, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 9, marginBottom: 10,
   },
   viewPlayersBtnText: { flex: 1, fontSize: 13, fontFamily: 'Inter_600SemiBold' },
-
   roomInputWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 10, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8,
   },
   roomInput: { flex: 1, fontSize: 14, fontFamily: 'Inter_500Medium' },
   saveBtn: {
@@ -536,86 +732,66 @@ const styles = StyleSheet.create({
   saveBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
 
   // Add form
-  formCard: {
-    flex: 1, marginHorizontal: 16, borderRadius: 20, borderWidth: 1, padding: 20, marginBottom: 12,
-  },
-  formHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16,
-  },
+  formCard: { flex: 1, marginHorizontal: 16, borderRadius: 20, borderWidth: 1, padding: 20, marginBottom: 12 },
+  formHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   formTitle: { fontSize: 18, fontFamily: 'Inter_700Bold' },
-  fLabel: {
-    fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8, marginBottom: 6, marginTop: 12,
-  },
+  fLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8, marginBottom: 6, marginTop: 14 },
   gameToggle: { flexDirection: 'row', borderRadius: 10, padding: 3 },
   gameToggleBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
   gameToggleText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
-  statusRow: { flexDirection: 'row', gap: 8 },
-  statusChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
-  statusChipText: { fontSize: 12, fontFamily: 'Inter_500Medium' },
+  chipRow: { flexDirection: 'row', gap: 8 },
+  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  chipText: { fontSize: 12, fontFamily: 'Inter_500Medium' },
+  // Entry type toggle
+  entryToggle: { flexDirection: 'row', borderRadius: 12, padding: 3 },
+  entryToggleBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 9 },
+  entryToggleText: { fontSize: 14, fontFamily: 'Inter_700Bold' },
   fInput: { borderRadius: 10, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 11 },
   fInputText: { fontSize: 14, fontFamily: 'Inter_400Regular' },
+  // Prize structure
+  prizeSectionHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderTopWidth: 1, paddingTop: 18, marginTop: 10, marginBottom: -4,
+  },
+  prizeSectionTitle: { fontSize: 14, fontFamily: 'Inter_700Bold', flex: 1 },
+  prizeSectionSub: { fontSize: 11, fontFamily: 'Inter_400Regular' },
+  rankPrizeRow: { flexDirection: 'row', gap: 8 },
+  rankPrizeLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', marginBottom: 5, marginTop: 0 },
   addSubmitBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 20 },
   addSubmitText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
 
   // Withdrawal section
   withdrawSection: { marginTop: 24 },
   withdrawHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderTopWidth: 1,
-    paddingTop: 20,
-    marginBottom: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderTopWidth: 1, paddingTop: 20, marginBottom: 16,
   },
   withdrawTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', flex: 1 },
   pendingBadge: {
-    backgroundColor: '#EAB308',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
+    backgroundColor: '#EAB308', borderRadius: 10, minWidth: 20, height: 20,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6,
   },
   pendingBadgeText: { fontSize: 11, fontFamily: 'Inter_700Bold', color: '#000' },
-  withdrawSubLabel: {
-    fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8, marginBottom: 8,
-  },
-
-  // Withdrawal card
+  withdrawSubLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8, marginBottom: 8 },
   wdCard: { borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 10 },
   wdCardTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  wdStatusDot: { width: 8, height: 8, borderRadius: 4 },
+  wdDot: { width: 8, height: 8, borderRadius: 4 },
   wdUsername: { flex: 1, fontSize: 15, fontFamily: 'Inter_700Bold' },
   wdAmount: { fontSize: 16, fontFamily: 'Inter_700Bold' },
   wdMeta: { gap: 5, marginBottom: 12 },
   wdMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   wdMetaText: { fontSize: 12, fontFamily: 'Inter_400Regular' },
   markPaidBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#22C55E',
-    borderRadius: 10,
-    paddingVertical: 10,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, backgroundColor: '#22C55E', borderRadius: 10, paddingVertical: 10,
   },
   markPaidText: { fontSize: 13, fontFamily: 'Inter_700Bold', color: '#fff' },
   paidBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(34,197,94,0.12)',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
+    backgroundColor: 'rgba(34,197,94,0.12)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
   },
   paidBadgeText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#22C55E' },
 
-  // Access denied / empty
-  accessTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', marginTop: 16, marginBottom: 8 },
-  accessText: { fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 20 },
-  empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
+  empty: { alignItems: 'center', paddingTop: 40, gap: 10 },
   emptyText: { fontSize: 14, fontFamily: 'Inter_400Regular' },
 });

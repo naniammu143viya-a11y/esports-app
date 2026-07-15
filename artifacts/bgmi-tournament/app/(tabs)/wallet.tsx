@@ -44,7 +44,6 @@ function WithdrawModal({
     if (!amount || amount <= 0) return setError('Enter a valid amount.');
     if (amount > balance) return setError(`Max withdrawal is ₹${balance}.`);
     if (!upiId.trim()) return setError('UPI ID / PhonePe number is required.');
-
     setLoading(true);
     try {
       await onSubmit(amount, upiId.trim());
@@ -98,10 +97,7 @@ function WithdrawModal({
             />
           </View>
 
-          {!!error && (
-            <Text style={[styles.wdError, { color: c.destructive }]}>{error}</Text>
-          )}
-
+          {!!error && <Text style={[styles.wdError, { color: c.destructive }]}>{error}</Text>}
           <Text style={[styles.wdHint, { color: c.mutedForeground }]}>
             Admin will verify and send the money to your UPI within 24 hours.
           </Text>
@@ -111,9 +107,7 @@ function WithdrawModal({
             disabled={loading}
             style={({ pressed }) => [styles.wdBtn, { backgroundColor: c.primary, opacity: pressed || loading ? 0.8 : 1 }]}
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
+            {loading ? <ActivityIndicator color="#fff" /> : (
               <>
                 <Ionicons name="send-outline" size={16} color="#fff" />
                 <Text style={styles.wdBtnText}>Submit Request</Text>
@@ -127,11 +121,7 @@ function WithdrawModal({
 }
 
 // ─── UPI Edit Modal ───────────────────────────────────────────────────────────
-function EditUpiModal({
-  current,
-  onClose,
-  onSave,
-}: {
+function EditUpiModal({ current, onClose, onSave }: {
   current: string;
   onClose: () => void;
   onSave: (upiId: string) => Promise<void>;
@@ -143,11 +133,7 @@ function EditUpiModal({
   async function handleSave() {
     if (!value.trim()) return;
     setLoading(true);
-    try {
-      await onSave(value.trim());
-    } finally {
-      setLoading(false);
-    }
+    try { await onSave(value.trim()); } finally { setLoading(false); }
   }
 
   return (
@@ -163,7 +149,6 @@ function EditUpiModal({
               <Ionicons name="close" size={20} color={c.mutedForeground} />
             </Pressable>
           </View>
-
           <Text style={[styles.wdLabel, { color: c.mutedForeground }]}>UPI ID / PHONEPЕ NUMBER</Text>
           <View style={[styles.wdInputWrap, { backgroundColor: c.input, borderColor: c.border }]}>
             <Ionicons name="wallet-outline" size={16} color={c.mutedForeground} />
@@ -178,17 +163,12 @@ function EditUpiModal({
               autoFocus
             />
           </View>
-
           <Pressable
             onPress={handleSave}
             disabled={loading}
             style={({ pressed }) => [styles.wdBtn, { backgroundColor: c.primary, opacity: pressed || loading ? 0.8 : 1 }]}
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.wdBtnText}>Save</Text>
-            )}
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.wdBtnText}>Save</Text>}
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -199,28 +179,81 @@ function EditUpiModal({
 // ─── Earning Row ──────────────────────────────────────────────────────────────
 function EarningRow({ record }: { record: EarningRecord }) {
   const c = useColors();
+  const [expanded, setExpanded] = useState(false);
+  const bd = record.breakdown;
+
   const date = (() => {
     try {
       return new Date(record.declaredAt).toLocaleDateString('en-IN', {
         day: 'numeric', month: 'short', year: 'numeric',
       });
-    } catch {
-      return '';
-    }
+    } catch { return ''; }
   })();
 
+  const hasBreakdown = !!bd && (bd.kills > 0 || bd.rankPrize > 0);
+
   return (
-    <View style={[styles.earningRow, { borderBottomColor: c.border }]}>
-      <View style={[styles.earningIcon, { backgroundColor: 'rgba(34,197,94,0.12)' }]}>
-        <Ionicons name="trophy" size={18} color="#22C55E" />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.earningName, { color: c.foreground }]} numberOfLines={1}>
-          {record.tournamentName}
-        </Text>
-        <Text style={[styles.earningDate, { color: c.mutedForeground }]}>{date}</Text>
-      </View>
-      <Text style={styles.earningAmount}>+₹{record.amount.toLocaleString()}</Text>
+    <View style={[styles.earningCard, { borderBottomColor: c.border }]}>
+      <Pressable
+        onPress={() => hasBreakdown && setExpanded((v) => !v)}
+        style={styles.earningRow}
+      >
+        <View style={[styles.earningIcon, { backgroundColor: 'rgba(34,197,94,0.12)' }]}>
+          <Ionicons name="trophy" size={18} color="#22C55E" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.earningName, { color: c.foreground }]} numberOfLines={1}>
+            {record.tournamentName}
+          </Text>
+          <Text style={[styles.earningDate, { color: c.mutedForeground }]}>{date}</Text>
+        </View>
+        <View style={styles.earningRight}>
+          <Text style={styles.earningAmount}>+₹{record.amount.toLocaleString()}</Text>
+          {hasBreakdown && (
+            <Ionicons
+              name={expanded ? 'chevron-up' : 'chevron-down'}
+              size={14}
+              color={c.mutedForeground}
+            />
+          )}
+        </View>
+      </Pressable>
+
+      {/* Prize breakdown */}
+      {expanded && bd && (
+        <View style={[styles.breakdownBox, { backgroundColor: c.muted }]}>
+          {bd.kills > 0 && bd.killPrize > 0 && (
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLeft}>
+                <MaterialCommunityIcons name="skull-crossbones-outline" size={14} color={c.mutedForeground} />
+                <Text style={[styles.breakdownLabel, { color: c.mutedForeground }]}>
+                  Kills ({bd.kills})
+                </Text>
+              </View>
+              <Text style={[styles.breakdownAmount, { color: c.foreground }]}>
+                +₹{bd.killPrize.toLocaleString()}
+              </Text>
+            </View>
+          )}
+          {bd.rankPrize > 0 && (
+            <View style={styles.breakdownRow}>
+              <View style={styles.breakdownLeft}>
+                <Ionicons name="podium-outline" size={14} color={c.mutedForeground} />
+                <Text style={[styles.breakdownLabel, { color: c.mutedForeground }]}>
+                  {bd.rank} Place Rank
+                </Text>
+              </View>
+              <Text style={[styles.breakdownAmount, { color: c.foreground }]}>
+                +₹{bd.rankPrize.toLocaleString()}
+              </Text>
+            </View>
+          )}
+          <View style={[styles.breakdownTotal, { borderTopColor: c.border }]}>
+            <Text style={[styles.breakdownTotalLabel, { color: c.mutedForeground }]}>TOTAL</Text>
+            <Text style={styles.breakdownTotalAmount}>₹{record.amount.toLocaleString()}</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -240,10 +273,7 @@ export default function WalletScreen() {
   const upiId = user?.upiId ?? '';
 
   async function handleWithdraw(amount: number, upiIdVal: string) {
-    // Also save the UPI ID to their profile if different
-    if (upiIdVal !== upiId) {
-      await updateProfile({ upiId: upiIdVal });
-    }
+    if (upiIdVal !== upiId) await updateProfile({ upiId: upiIdVal });
     await requestWithdrawal(amount, upiIdVal);
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setShowWithdraw(false);
@@ -266,7 +296,6 @@ export default function WalletScreen() {
         contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 100 }]}
         ListHeaderComponent={
           <>
-            {/* Header */}
             <View style={[styles.header, { paddingTop: topPad + 10 }]}>
               <Text style={[styles.headerTitle, { color: c.foreground }]}>My Earnings</Text>
               <MaterialCommunityIcons name="wallet" size={22} color={c.primary} />
@@ -277,7 +306,6 @@ export default function WalletScreen() {
               <Text style={styles.balanceLabel}>AVAILABLE BALANCE</Text>
               <Text style={styles.balanceAmount}>₹{wallet.balance.toLocaleString()}</Text>
               <Text style={styles.balanceSub}>Total won: ₹{wallet.totalEarned.toLocaleString()}</Text>
-
               {wallet.balance > 0 && (
                 <Pressable
                   onPress={() => setShowWithdraw(true)}
@@ -289,7 +317,6 @@ export default function WalletScreen() {
               )}
             </View>
 
-            {/* Withdraw success banner */}
             {withdrawSuccess && (
               <View style={styles.successBanner}>
                 <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
@@ -318,7 +345,6 @@ export default function WalletScreen() {
               </Pressable>
             </View>
 
-            {/* Earnings history header */}
             {wallet.earnings.length > 0 && (
               <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
                 PRIZE HISTORY
@@ -338,7 +364,6 @@ export default function WalletScreen() {
         }
       />
 
-      {/* Modals */}
       {showWithdraw && (
         <WithdrawModal
           balance={wallet.balance}
@@ -361,118 +386,60 @@ export default function WalletScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   listContent: { paddingHorizontal: 16 },
-
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: 16,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 16,
   },
   headerTitle: { fontSize: 24, fontFamily: 'Inter_700Bold' },
 
-  // Balance card
-  balanceCard: {
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 14,
-    alignItems: 'center',
-    gap: 4,
-  },
-  balanceLabel: {
-    fontSize: 11,
-    fontFamily: 'Inter_600SemiBold',
-    color: 'rgba(255,255,255,0.7)',
-    letterSpacing: 0.8,
-  },
-  balanceAmount: {
-    fontSize: 42,
-    fontFamily: 'Inter_700Bold',
-    color: '#fff',
-    marginVertical: 4,
-  },
-  balanceSub: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    color: 'rgba(255,255,255,0.75)',
-    marginBottom: 8,
-  },
+  balanceCard: { borderRadius: 20, padding: 24, marginBottom: 14, alignItems: 'center', gap: 4 },
+  balanceLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.7)', letterSpacing: 0.8 },
+  balanceAmount: { fontSize: 42, fontFamily: 'Inter_700Bold', color: '#fff', marginVertical: 4 },
+  balanceSub: { fontSize: 13, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.75)', marginBottom: 8 },
   withdrawBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    marginTop: 4,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, marginTop: 4,
   },
   withdrawBtnText: { fontSize: 14, fontFamily: 'Inter_700Bold' },
 
-  // Success banner
   successBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(34,197,94,0.1)',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.3)',
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(34,197,94,0.1)', borderRadius: 12, padding: 12,
+    marginBottom: 14, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)',
   },
   successBannerText: { flex: 1, fontSize: 13, fontFamily: 'Inter_500Medium', color: '#22C55E' },
 
-  // UPI card
   upiCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-    marginBottom: 20,
-    gap: 12,
+    flexDirection: 'row', alignItems: 'center', borderRadius: 14,
+    borderWidth: 1, padding: 14, marginBottom: 20, gap: 12,
   },
   upiCardLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8, marginBottom: 4 },
   upiCardValue: { fontSize: 14, fontFamily: 'Inter_500Medium' },
-  editUpiBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 8,
-  },
+  editUpiBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8 },
   editUpiBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
 
-  sectionLabel: {
-    fontSize: 11,
-    fontFamily: 'Inter_600SemiBold',
-    letterSpacing: 0.8,
-    marginBottom: 8,
-  },
+  sectionLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8, marginBottom: 8 },
 
-  // Earning row
-  earningRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-  },
-  earningIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  // Earning card & row
+  earningCard: { borderBottomWidth: 1 },
+  earningRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
+  earningIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   earningName: { fontSize: 14, fontFamily: 'Inter_600SemiBold', marginBottom: 2 },
   earningDate: { fontSize: 11, fontFamily: 'Inter_400Regular' },
-  earningAmount: {
-    fontSize: 16,
-    fontFamily: 'Inter_700Bold',
-    color: '#22C55E',
+  earningRight: { alignItems: 'flex-end', gap: 3 },
+  earningAmount: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#22C55E' },
+
+  // Breakdown
+  breakdownBox: { borderRadius: 12, marginHorizontal: 0, marginBottom: 10, padding: 12, gap: 8 },
+  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  breakdownLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  breakdownLabel: { fontSize: 13, fontFamily: 'Inter_400Regular' },
+  breakdownAmount: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  breakdownTotal: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    borderTopWidth: 1, paddingTop: 8, marginTop: 4,
   },
+  breakdownTotalLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8 },
+  breakdownTotalAmount: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#22C55E' },
 
   // Empty
   empty: { alignItems: 'center', paddingTop: 40, gap: 10 },
@@ -480,40 +447,14 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 13, fontFamily: 'Inter_400Regular', textAlign: 'center' },
 
   // Withdraw modal
-  wdBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  wdSheet: {
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 20,
-    gap: 0,
-  },
-  wdHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
+  wdBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', padding: 20 },
+  wdSheet: { borderRadius: 20, borderWidth: 1, padding: 20 },
+  wdHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   wdTitle: { fontSize: 18, fontFamily: 'Inter_700Bold' },
-  wdLabel: {
-    fontSize: 10,
-    fontFamily: 'Inter_600SemiBold',
-    letterSpacing: 0.8,
-    marginBottom: 6,
-    marginTop: 14,
-  },
+  wdLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8, marginBottom: 6, marginTop: 14 },
   wdInputWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12,
   },
   rupee: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
   wdInput: { flex: 1, fontSize: 15, fontFamily: 'Inter_400Regular' },
@@ -521,13 +462,8 @@ const styles = StyleSheet.create({
   wdError: { fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 6 },
   wdHint: { fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 10, lineHeight: 16 },
   wdBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 14,
-    paddingVertical: 14,
-    marginTop: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, borderRadius: 14, paddingVertical: 14, marginTop: 16,
   },
   wdBtnText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
 });

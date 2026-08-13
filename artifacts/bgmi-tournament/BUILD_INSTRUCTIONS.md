@@ -52,7 +52,7 @@ eas build --platform android --profile production
 ## Option B: GitHub Codespaces (no local machine required)
 
 1. Push this folder to a GitHub repo
-2. Open the repo → click **Code** → **Codespaces** → **Create codespace**
+2. Open the repo → click **Code** → **Codespaces** → **e code codespace**
 3. Run the commands from Option A in the Codespace terminal
 4. Download the APK/AAB from the Codespace file explorer
 

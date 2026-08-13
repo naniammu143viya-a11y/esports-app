@@ -1,5 +1,5 @@
 {
-  "name": "@workspace/mockup-sandbox",
+  "name": "mockup-sandbox",
   "version": "2.0.0",
   "type": "module",
   "private": true,
@@ -70,5 +70,12 @@
     "vaul": "^1.1.2",
     "vite": "catalog:",
     "zod": "catalog:"
-  }
+  },
+  "dependencies": {
+    "expo": "^57.0.5"
+  },
+  "expo": {
+    "slug": "mockup-sandbox"
+  },
+  "slug": "mockup-sandbox"
 }

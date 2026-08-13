@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "8bdad8e0-5f97-4c8d-a7c6-39054496e992"
+      }
+    },
+    "owner": "nanidil",
+    "android": {
+      "package": "com.nanidil.mockupsandbox"
+    }
+  }
+}

@@ -6,12 +6,37 @@ No backend needed — 100% AsyncStorage offline app.
 
 ---
 
-## Option A: EAS Build (Recommended — runs in Expo's cloud, no Android Studio needed)
+## Option A: Replit guided Android build (Recommended)
 
-The Replit workspace can validate the Expo config, TypeScript, dependency alignment,
-and Android JavaScript bundle, but it cannot authenticate to an external Android
-build service or install an APK on a device. Run the two release builds below from
-an authenticated machine before submitting to Google Play.
+Replit's mobile publishing flow runs the production Android build on Expo's
+cloud infrastructure. It does not require Android Studio, the Android SDK,
+Node.js, or an external terminal setup.
+
+1. Open the project's **Publish** or **Publishing settings** panel.
+2. Choose the Android production build option.
+3. Start the build and wait for the generated download link.
+4. Download the `.aab` file from that link.
+5. Upload the `.aab` to the Google Play Console under an internal testing
+   or production release track.
+
+Google Play requires an Android App Bundle (`.aab`) for store submission. An
+APK is for direct installation and testing, not the normal Play Store upload
+format. The current Replit documentation describes the guided production
+artifact as an AAB; if the panel offers an APK/internal distribution option,
+use that option for phone installation.
+
+The project is already configured with:
+
+- Android package: `com.battlezone.app`
+- Version: `1.0.0`
+- Version code: `1`
+- Production AAB profile in `eas.json`
+- Preview APK profile in `eas.json`
+
+### If the Android build option is not visible
+
+Use the fallback EAS flow below from an authenticated Node.js environment.
+You do not need Android Studio because the build runs in Expo's cloud.
 
 ### 1. Install prerequisites
 ```bash

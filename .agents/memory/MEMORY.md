@@ -1,0 +1,1 @@
+- [Expo SDK upgrades](expo-sdk-upgrades.md) — scope upgrades to the mobile workspace, align managed packages, then verify Router APIs and typings.

@@ -196,9 +196,9 @@ export default function LoginScreen() {
             <SignInForm
               c={c}
               username={siUsername}
-              setUsername={(v) => { setSiUsername(v); clearErrors(); }}
+              setUsername={(v: string) => { setSiUsername(v); clearErrors(); }}
               password={siPassword}
-              setPassword={(v) => { setSiPassword(v); clearErrors(); }}
+              setPassword={(v: string) => { setSiPassword(v); clearErrors(); }}
               showPw={siShowPw}
               toggleShowPw={() => setSiShowPw((p) => !p)}
               errors={errors}
@@ -211,19 +211,19 @@ export default function LoginScreen() {
             <SignUpForm
               c={c}
               username={suUsername}
-              setUsername={(v) => { setSuUsername(v); clearErrors(); }}
+              setUsername={(v: string) => { setSuUsername(v); clearErrors(); }}
               mobile={suMobile}
-              setMobile={(v) => { setSuMobile(v.replace(/\D/g, '').slice(0, 10)); clearErrors(); }}
+              setMobile={(v: string) => { setSuMobile(v.replace(/\D/g, '').slice(0, 10)); clearErrors(); }}
               gameId={suGameId}
-              setGameId={(v) => { setSuGameId(v); clearErrors(); }}
+              setGameId={(v: string) => { setSuGameId(v); clearErrors(); }}
               gameType={suGameType}
               setGameType={setSuGameType}
               upiId={suUpiId}
               setUpiId={setSuUpiId}
               password={suPassword}
-              setPassword={(v) => { setSuPassword(v); clearErrors(); }}
+              setPassword={(v: string) => { setSuPassword(v); clearErrors(); }}
               confirm={suConfirm}
-              setConfirm={(v) => { setSuConfirm(v); clearErrors(); }}
+              setConfirm={(v: string) => { setSuConfirm(v); clearErrors(); }}
               showPw={suShowPw}
               toggleShowPw={() => setSuShowPw((p) => !p)}
               showConfirm={suShowConfirm}

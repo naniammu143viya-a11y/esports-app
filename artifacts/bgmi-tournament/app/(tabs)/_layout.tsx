@@ -5,7 +5,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
-import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/AuthContext';
@@ -17,23 +17,23 @@ function NativeTabLayout() {
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: 'trophy', selected: 'trophy.fill' }} />
-        <Label>Lobby</Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'trophy', selected: 'trophy.fill' }} />
+        <NativeTabs.Trigger.Label>Lobby</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="my-matches">
-        <Icon sf={{ default: 'gamecontroller', selected: 'gamecontroller.fill' }} />
-        <Label>My Matches</Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'gamecontroller', selected: 'gamecontroller.fill' }} />
+        <NativeTabs.Trigger.Label>My Matches</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       {!isAdmin && (
         <NativeTabs.Trigger name="wallet">
-          <Icon sf={{ default: 'wallet', selected: 'wallet.fill' }} />
-          <Label>Earnings</Label>
+          <NativeTabs.Trigger.Icon sf={{ default: 'creditcard', selected: 'creditcard.fill' }} />
+          <NativeTabs.Trigger.Label>Earnings</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       )}
       {isAdmin && (
         <NativeTabs.Trigger name="admin">
-          <Icon sf={{ default: 'shield', selected: 'shield.fill' }} />
-          <Label>Admin</Label>
+          <NativeTabs.Trigger.Icon sf={{ default: 'shield', selected: 'shield.fill' }} />
+          <NativeTabs.Trigger.Label>Admin</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       )}
     </NativeTabs>
@@ -111,7 +111,7 @@ function ClassicTabLayout() {
           href: isAdmin ? null : undefined,
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="wallet.fill" tintColor={color} size={22} />
+              <SymbolView name="creditcard.fill" tintColor={color} size={22} />
             ) : (
               <Ionicons name="wallet" size={22} color={color} />
             ),

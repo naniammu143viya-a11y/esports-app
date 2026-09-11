@@ -1,51 +1,54 @@
 name: Build Android APK
 
 on:
-  push:
-    branches: [ main, master ]
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "artifacts/bgmi-tournament/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  build-apk:
+    name: Build Expo APK with EAS
     runs-on: ubuntu-latest
+    env:
+      APP_DIR: artifacts/bgmi-tournament
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
     steps:
-      - name: Checkout Repository
+      - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Setup PNPM
-        uses: pnpm/action-setup@v3
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
         with:
           version: 10.26.1
 
-      - name: Install Dependencies
+      - name: Validate Expo project and credentials
+        run: |
+          test -f "$APP_DIR/app.json"
+          test -f "$APP_DIR/eas.json"
+          test -n "$EXPO_TOKEN" || {
+            echo "::error::Add EXPO_TOKEN in GitHub repository Settings > Secrets and variables > Actions."
+            exit 1
+          }
+
+      - name: Install project dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Setup Java JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Setup Expo CLI
-        uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-
-      - name: Build Android APK
-        run: |
-          cd artifacts/bgmi-tournament || true
-          npx eas-cli build --platform android --profile preview --local --output=app-release.apk || true
-
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release-apk
-          path: |
-            **/*.apk
+      - name: Build APK with EAS
+        working-directory: ${{ env.APP_DIR }}
+        run: pnpm dlx eas-cli@latest build --platform android --profile preview --non-interactive

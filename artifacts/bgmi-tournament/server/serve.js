@@ -15,6 +15,8 @@ const path = require('path');
 
 const STATIC_ROOT = path.resolve(__dirname, '..', 'static-build');
 const TEMPLATE_PATH = path.resolve(__dirname, 'templates', 'landing-page.html');
+const PWA_MANIFEST_PATH = path.resolve(__dirname, '..', 'manifest.json');
+const APP_ICON_PATH = path.resolve(__dirname, '..', 'assets', 'images', 'icon.png');
 const basePath = (process.env.BASE_PATH || '/').replace(/\/+$/, '');
 
 const MIME_TYPES = {
@@ -65,6 +67,35 @@ function serveManifest(platform, res) {
   res.end(manifest);
 }
 
+function servePwaManifest(res) {
+  if (!fs.existsSync(PWA_MANIFEST_PATH)) {
+    res.writeHead(404, { 'content-type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: 'PWA manifest not found' }));
+    return;
+  }
+
+  const manifest = fs.readFileSync(PWA_MANIFEST_PATH, 'utf-8');
+  res.writeHead(200, {
+    'content-type': 'application/manifest+json; charset=utf-8',
+    'cache-control': 'public, max-age=300',
+  });
+  res.end(manifest);
+}
+
+function serveAppIcon(res) {
+  if (!fs.existsSync(APP_ICON_PATH)) {
+    res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+    res.end('Icon not found');
+    return;
+  }
+
+  res.writeHead(200, {
+    'content-type': 'image/png',
+    'cache-control': 'public, max-age=86400',
+  });
+  res.end(fs.readFileSync(APP_ICON_PATH));
+}
+
 function serveLandingPage(req, res, landingPageTemplate, appName) {
   const forwardedProto = req.headers['x-forwarded-proto'];
   const protocol = forwardedProto || 'https';
@@ -113,6 +144,14 @@ const server = http.createServer((req, res) => {
 
   if (basePath && pathname.startsWith(basePath)) {
     pathname = pathname.slice(basePath.length) || '/';
+  }
+
+  if (pathname === '/manifest.json') {
+    return servePwaManifest(res);
+  }
+
+  if (pathname === '/icon.png') {
+    return serveAppIcon(res);
   }
 
   if (pathname === '/' || pathname === '/manifest') {

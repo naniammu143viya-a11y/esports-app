@@ -13,6 +13,7 @@ import {
 import QRCode from 'react-native-qrcode-svg';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import * as IntentLauncher from 'expo-intent-launcher';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/context/AuthContext';
@@ -39,28 +40,28 @@ const UPI_APPS = [
     icon: 'phone-portrait-outline' as const,
     color: '#5F259F',
     bg: 'rgba(95,37,159,0.12)',
-    getUrl: (u: string) => u.replace('upi://', 'phonepe://'),
+    packageName: 'com.phonepe.app',
   },
   {
     label: 'Google Pay',
     icon: 'logo-google' as const,
     color: '#1A73E8',
     bg: 'rgba(26,115,232,0.12)',
-    getUrl: (u: string) => u.replace('upi://pay', 'tez://upi/pay'),
+    packageName: 'com.google.android.apps.nbu.paisa.user',
   },
   {
     label: 'Paytm',
     icon: 'wallet-outline' as const,
     color: '#00BAF2',
     bg: 'rgba(0,186,242,0.12)',
-    getUrl: (u: string) => u.replace('upi://', 'paytmmp://'),
+    packageName: 'net.one97.paytm',
   },
   {
     label: 'Any UPI',
     icon: 'apps-outline' as const,
     color: '#FF6B00',
     bg: 'rgba(255,107,0,0.12)',
-    getUrl: (u: string) => u,
+    packageName: undefined,
   },
 ];
 
@@ -93,28 +94,44 @@ export function PaymentModal({ tournament, onClose }: Props) {
     ? buildUpiUrl(adminUpiId, tournament.entryFee, `Entry: ${tournament.name}`)
     : '';
 
-  async function openUpiApp(getUrl: (u: string) => string) {
-    const url = getUrl(upiUrl);
+  async function openUpiApp(packageName?: string) {
+    if (!upiUrl) return;
+
     try {
-      const canOpen = await Linking.canOpenURL(url);
-      if (canOpen) {
-        await Linking.openURL(url);
+      if (Platform.OS === 'android') {
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: upiUrl,
+          ...(packageName ? { packageName } : {}),
+        });
         setIntentLaunched(true);
-      } else {
-        const fallback = await Linking.canOpenURL(upiUrl);
-        if (fallback) {
-          await Linking.openURL(upiUrl);
-          setIntentLaunched(true);
-        } else {
-          Alert.alert(
-            'No UPI App Found',
-            'Please install PhonePe, Google Pay, or Paytm and try again, or scan the QR code above.',
-          );
-        }
+        return;
+      }
+
+      if (await Linking.canOpenURL(upiUrl)) {
+        await Linking.openURL(upiUrl);
+        setIntentLaunched(true);
+        return;
       }
     } catch {
-      Alert.alert('Error', 'Could not open the payment app. Please scan the QR code instead.');
+      // A package-targeted Android intent can fail when that specific app is
+      // not installed. Try the generic UPI handler before showing an error.
+      if (Platform.OS === 'android' && packageName) {
+        try {
+          await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+            data: upiUrl,
+          });
+          setIntentLaunched(true);
+          return;
+        } catch {
+          // Fall through to the user-facing message below.
+        }
+      }
     }
+
+    Alert.alert(
+      'No UPI App Found',
+      'Please install PhonePe, Google Pay, or Paytm and try again, or scan the QR code above.',
+    );
   }
 
   async function handleConfirmPayment() {
@@ -218,7 +235,7 @@ export function PaymentModal({ tournament, onClose }: Props) {
                     {UPI_APPS.map((app) => (
                       <Pressable
                         key={app.label}
-                        onPress={() => openUpiApp(app.getUrl)}
+                        onPress={() => openUpiApp(app.packageName)}
                         style={({ pressed }) => [styles.appBtn, { backgroundColor: app.bg, opacity: pressed ? 0.75 : 1 }]}
                       >
                         <Ionicons name={app.icon} size={20} color={app.color} />

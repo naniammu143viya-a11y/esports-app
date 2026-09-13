@@ -29,6 +29,7 @@
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
+      "./plugins/withUpiQueries",
       [
         "expo-router",
         {

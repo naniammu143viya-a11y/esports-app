@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '@/context/AuthContext';
 
 export type GameType = 'BGMI' | 'FreeFire';
 export type TournamentStatus = 'ongoing' | 'upcoming' | 'completed';
@@ -34,6 +35,7 @@ export interface Payment {
   tournamentId: string;
   status: 'PAID' | 'FREE';
   paymentId: string;
+  utr?: string;
   paidAt: string;
   amount: number;
 }
@@ -68,7 +70,7 @@ interface TournamentContextType {
   /** Legacy alias (no registration record) */
   joinTournament: (id: string) => void;
   /** Confirm payment for a paid tournament. Returns generated paymentId. */
-  confirmPayment: (tournamentId: string, amount: number, player: PlayerInfo) => Promise<string>;
+  confirmPayment: (tournamentId: string, amount: number, utr: string, player: PlayerInfo) => Promise<string>;
   getRegistrations: (tournamentId: string) => Registration[];
   updateRoomDetails: (id: string, roomId: string, password: string) => void;
   /** Admin: change the max player slots for a tournament */
@@ -132,6 +134,7 @@ const MOCK_TOURNAMENTS: Tournament[] = [
 ];
 
 export function TournamentProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [freeJoins, setFreeJoins] = useState<string[]>([]);
   const [payments, setPayments] = useState<Record<string, Payment>>({});
@@ -160,11 +163,59 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
         setFreeJoins(rawJ ? JSON.parse(rawJ) : []);
         setPayments(rawP ? JSON.parse(rawP) : {});
         setRegistrations(rawR ? JSON.parse(rawR) : []);
+
+        if (user?.username && process.env.EXPO_PUBLIC_DOMAIN) {
+          const response = await fetch(
+            `https://${process.env.EXPO_PUBLIC_DOMAIN}/api/payments/joins?username=${encodeURIComponent(user.username)}`,
+          );
+          if (response.ok) {
+            const payload = await response.json() as {
+              joins?: Array<{
+                tournamentId: string;
+                username: string;
+                mobile: string;
+                gameId: string;
+                gameType: GameType;
+                paymentId: string;
+                utr: string;
+                joinedAt: string;
+                amount: number;
+              }>;
+            };
+            const serverPayments: Record<string, Payment> = {};
+            const serverRegistrations: Registration[] = [];
+            for (const join of payload.joins ?? []) {
+              serverPayments[join.tournamentId] = {
+                tournamentId: join.tournamentId,
+                status: 'PAID',
+                paymentId: join.paymentId,
+                utr: join.utr,
+                paidAt: join.joinedAt,
+                amount: join.amount,
+              };
+              serverRegistrations.push({
+                tournamentId: join.tournamentId,
+                username: join.username,
+                mobile: join.mobile,
+                gameId: join.gameId,
+                gameType: join.gameType,
+                paymentId: join.paymentId,
+                paidAt: join.joinedAt,
+                amount: join.amount,
+              });
+            }
+            setPayments(serverPayments);
+            setRegistrations((previous) => [
+              ...previous.filter((registration) => registration.amount === 0),
+              ...serverRegistrations,
+            ]);
+          }
+        }
       } catch {
         setTournaments(MOCK_TOURNAMENTS);
       }
     })();
-  }, []);
+  }, [user?.username]);
 
   async function persistTournaments(updated: Tournament[]) {
     setTournaments(updated);
@@ -202,8 +253,6 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     setPayments(newPayments);
     setRegistrations(newRegistrations);
     await Promise.all([
-      AsyncStorage.setItem(PAYMENTS_KEY, JSON.stringify(newPayments)),
-      AsyncStorage.setItem(REGISTRATIONS_KEY, JSON.stringify(newRegistrations)),
       persistTournaments(updated),
     ]);
   }
@@ -221,22 +270,43 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   }
 
   // ─── Confirm paid payment ─────────────────────────────────────────────────
-  async function confirmPayment(tournamentId: string, amount: number, player: PlayerInfo): Promise<string> {
-    const paymentId = `PAY${Date.now().toString(36).toUpperCase()}`;
-    const now = new Date().toISOString();
+  async function confirmPayment(
+    tournamentId: string,
+    amount: number,
+    utr: string,
+    player: PlayerInfo,
+  ): Promise<string> {
+    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    if (!domain) throw new Error('Payment service is not configured.');
+    const response = await fetch(`https://${domain}/api/payments/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tournamentId,
+        amount,
+        utr,
+        ...player,
+      }),
+    });
+    const payload = await response.json() as { paymentId?: string; error?: string };
+    if (!response.ok || !payload.paymentId) {
+      throw new Error(payload.error ?? 'Invalid or Unverified UTR Number');
+    }
 
-    const payment: Payment = { tournamentId, status: 'PAID', paymentId, paidAt: now, amount };
+    const now = new Date().toISOString();
+    const payment: Payment = {
+      tournamentId, status: 'PAID', paymentId: payload.paymentId, utr, paidAt: now, amount,
+    };
     const registration: Registration = {
       tournamentId, username: player.username, mobile: player.mobile,
-      gameId: player.gameId, gameType: player.gameType, paymentId, paidAt: now, amount,
+      gameId: player.gameId, gameType: player.gameType,
+      paymentId: payload.paymentId, paidAt: now, amount,
     };
-
     const newPayments = { ...payments, [tournamentId]: payment };
     const newRegistrations = [...registrations, registration];
     const updated = tournaments.map((t) =>
       t.id === tournamentId ? { ...t, registeredTeams: Math.min(t.registeredTeams + 1, t.maxTeams) } : t,
     );
-
     setPayments(newPayments);
     setRegistrations(newRegistrations);
     await Promise.all([
@@ -244,7 +314,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
       AsyncStorage.setItem(REGISTRATIONS_KEY, JSON.stringify(newRegistrations)),
       persistTournaments(updated),
     ]);
-    return paymentId;
+    return payload.paymentId;
   }
 
   function getRegistrations(tournamentId: string): Registration[] {

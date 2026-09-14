@@ -21,6 +21,7 @@ import { useTournaments } from '@/context/TournamentContext';
 import { useWallet, ADMIN_UPI_KEY } from '@/context/WalletContext';
 import { GameBadge } from '@/components/GameBadge';
 import { RegisteredPlayersModal } from '@/components/RegisteredPlayersModal';
+import { PaymentReviewPanel } from '@/components/PaymentReviewPanel';
 import type { GameType, TournamentStatus, Tournament } from '@/context/TournamentContext';
 import type { WithdrawalRequest } from '@/context/WalletContext';
 
@@ -693,6 +694,7 @@ export default function AdminScreen() {
             <>
               {/* UPI Settings */}
               <AdminUpiCard />
+              <PaymentReviewPanel />
 
               <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
                 {tournaments.length} TOURNAMENT{tournaments.length !== 1 ? 'S' : ''}

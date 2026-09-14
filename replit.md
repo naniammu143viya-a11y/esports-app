@@ -1,15 +1,18 @@
-# [Project name]
+# BattleZone
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+BattleZone is an Expo mobile app for BGMI and Free Fire tournaments with UPI payment verification.
 
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/bgmi-tournament run dev` — run the Expo mobile preview
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string
+- Production payment ingestion requires `PAYMENT_WEBHOOK_SECRET`.
+- Production admin payment review requires `PAYMENT_ADMIN_SECRET` and a secure admin-authenticated client.
 
 ## Stack
 
@@ -22,23 +25,31 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/bgmi-tournament` — Expo Router mobile app and local tournament UI.
+- `artifacts/api-server/src/routes/payments.ts` — UTR webhook, instant verification, joins, admin feed, and manual review APIs.
+- `lib/db/src/schema/payments.ts` — central PostgreSQL payment and tournament-join tables.
+- `artifacts/bgmi-tournament/components/PaymentReviewPanel.tsx` — polling admin review panel.
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Paid UTRs are matched against verified webhook records in PostgreSQL; AsyncStorage is not used as the paid-payment source of truth.
+- The admin panel polls the central payment feed every five seconds so multiple devices converge without requiring a new realtime transport.
+- Webhook and admin secrets are optional in development but fail closed for their respective production paths.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Players pay by UPI, submit a 12-digit UTR, and receive an immediate join approval only when the server finds an unused matching incoming transaction.
+- Invalid and duplicate UTRs are rejected with `Invalid or Unverified UTR Number`.
+- Admins can monitor flagged submissions and manually approve or reject them.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+None recorded.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- A bank/payment provider must POST `{ utr, amount }` to `/api/payments/webhook` before player verification can succeed.
+- Set `PAYMENT_WEBHOOK_SECRET` and `PAYMENT_ADMIN_SECRET` before production; development intentionally allows local integration testing without these headers.
 
 ## Pointers
 

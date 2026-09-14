@@ -16,8 +16,9 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { TournamentProvider } from '@/context/TournamentContext';
 import { WalletProvider } from '@/context/WalletContext';
+import { View } from 'react-native';
 
-SplashScreen.preventAutoHideAsync();
+void SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
@@ -34,7 +35,11 @@ function RootLayoutNav() {
     }
   }, [isLoggedIn, isLoading]);
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0B0B1A' }} />
+    );
+  }
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
@@ -53,12 +58,13 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, fontError]);
+    // Render the dark app shell immediately. Font loading is progressive and
+    // must never keep the native splash screen up for seconds.
+    void SplashScreen.hideAsync();
+  }, []);
 
-  if (!fontsLoaded && !fontError) return null;
+  void fontsLoaded;
+  void fontError;
 
   return (
     <SafeAreaProvider>

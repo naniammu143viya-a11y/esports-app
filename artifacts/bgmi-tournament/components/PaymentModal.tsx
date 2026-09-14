@@ -8,6 +8,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
@@ -78,6 +79,7 @@ export function PaymentModal({ tournament, onClose }: Props) {
   const { confirmPayment } = useTournaments();
   const [step, setStep] = useState<Step>('payment');
   const [paymentId, setPaymentId] = useState('');
+  const [utr, setUtr] = useState('');
   const [intentLaunched, setIntentLaunched] = useState(false);
   const [adminUpiId, setAdminUpiId] = useState<string>(FALLBACK_UPI);
   const [upiLoaded, setUpiLoaded] = useState(false);
@@ -135,11 +137,15 @@ export function PaymentModal({ tournament, onClose }: Props) {
   }
 
   async function handleConfirmPayment() {
+    const cleanUtr = utr.replace(/\D/g, '');
+    if (cleanUtr.length !== 12) {
+      Alert.alert('Enter UTR Number', 'Enter the 12-digit UTR / UPI transaction ID after completing payment.');
+      return;
+    }
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setStep('verifying');
-    await new Promise((r) => setTimeout(r, 2000));
     try {
-      const id = await confirmPayment(tournament.id, tournament.entryFee, {
+      const id = await confirmPayment(tournament.id, tournament.entryFee, cleanUtr, {
         username: user?.username ?? 'Unknown',
         mobile: user?.mobile ?? '',
         gameId: user?.gameId ?? '',
@@ -151,7 +157,7 @@ export function PaymentModal({ tournament, onClose }: Props) {
       setTimeout(onClose, 2500);
     } catch {
       setStep('payment');
-      Alert.alert('Error', 'Payment confirmation failed. Please try again.');
+      Alert.alert('Payment Not Verified', 'Invalid or Unverified UTR Number');
     }
   }
 
@@ -248,20 +254,37 @@ export function PaymentModal({ tournament, onClose }: Props) {
 
               <View style={[styles.divider, { backgroundColor: c.border }]} />
 
+              <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>12-DIGIT UTR / UPI TRANSACTION ID</Text>
+              <View style={[styles.utrInputWrap, { backgroundColor: c.input, borderColor: utr.length === 12 ? '#22C55E' : c.border }]}>
+                <TextInput
+                  style={[styles.utrInput, { color: c.foreground }]}
+                  value={utr}
+                  onChangeText={(value) => setUtr(value.replace(/\D/g, '').slice(0, 12))}
+                  placeholder="e.g. 123456789012"
+                  placeholderTextColor={c.mutedForeground}
+                  keyboardType="number-pad"
+                  maxLength={12}
+                  autoCorrect={false}
+                />
+                <Text style={[styles.utrCount, { color: utr.length === 12 ? '#22C55E' : c.mutedForeground }]}>
+                  {utr.length}/12
+                </Text>
+              </View>
+
               <Pressable
                 onPress={handleConfirmPayment}
                 style={({ pressed }) => [
                   styles.confirmBtn,
-                  { backgroundColor: intentLaunched ? '#22C55E' : c.primary, opacity: pressed ? 0.85 : 1 },
+                  { backgroundColor: utr.length === 12 ? '#22C55E' : c.primary, opacity: pressed ? 0.85 : 1 },
                 ]}
               >
                 <MaterialCommunityIcons
-                  name={intentLaunched ? 'check-circle-outline' : 'currency-inr'}
+                  name={utr.length === 12 ? 'check-circle-outline' : 'currency-inr'}
                   size={18}
                   color="#fff"
                 />
                 <Text style={styles.confirmBtnText}>
-                  {intentLaunched ? "I've Paid — Confirm Registration" : 'I Have Paid'}
+                  {utr.length === 12 ? 'I Have Paid — Verify Now' : 'I Have Paid'}
                 </Text>
               </Pressable>
 
@@ -358,6 +381,12 @@ const styles = StyleSheet.create({
   },
   confirmBtnText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
   disclaimer: { fontSize: 11, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 16 },
+  utrInputWrap: {
+    flexDirection: 'row', alignItems: 'center', borderRadius: 12, borderWidth: 1,
+    paddingHorizontal: 12, marginBottom: 12,
+  },
+  utrInput: { flex: 1, fontSize: 16, fontFamily: 'Inter_600SemiBold', letterSpacing: 1.2, paddingVertical: 12 },
+  utrCount: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
   centeredStep: { alignItems: 'center', paddingVertical: 24, gap: 12 },
   stepTitle: { fontSize: 20, fontFamily: 'Inter_700Bold', marginTop: 8 },
   stepSub: { fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 20 },

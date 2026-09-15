@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: admin
+    description: Admin account operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /admin/password:
+    post:
+      operationId: updateAdminPassword
+      tags: [admin]
+      summary: Update the admin password
+      description: Verifies the current admin password and stores a securely hashed replacement.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPasswordUpdateRequest"
+      responses:
+        "200":
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordUpdateResponse"
+        "400":
+          description: Invalid password request
+        "401":
+          description: Current password is incorrect
 components:
   schemas:
     HealthStatus:
@@ -33,4 +58,26 @@ components:
           type: string
       required:
         - status
+    AdminPasswordUpdateRequest:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+          minLength: 1
+        newPassword:
+          type: string
+          minLength: 8
+    PasswordUpdateResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+        - message
 

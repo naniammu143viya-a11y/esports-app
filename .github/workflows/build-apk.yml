@@ -28,10 +28,9 @@ jobs:
 
       - name: Install project dependencies
         run: pnpm install --no-frozen-lockfile
-
       - name: Build APK with EAS
         working-directory: ${{ env.APP_DIR }}
         run: |
+          pnpm dlx eas-cli@latest login --token ${{ secrets.EXPO_TOKEN }}
           echo '{"expo": {"name": "BGMI Tournament", "slug": "bgmi-tournament", "version": "1.0.0", "extra": {"eas": {"projectId": "92576ef7-ce98-450f-90e6-b9306e2173a2"}}}}' > app.json
           pnpm dlx eas-cli@latest build --platform android --profile preview --non-interactive
-

@@ -39,9 +39,8 @@
       "expo-font",
       "expo-web-browser"
     ],
-    "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
-    },
+    "extra": {
+  "eas": {
+    "projectId": "xN6g5FD91iwwWutHKkmQxLkfOW__NJxt4Qv_XGRt"
   }
-}
+    }

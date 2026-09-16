@@ -1,8 +1,12 @@
 {
   "expo": {
-    "android": {
-      "package": "com.nanidil.workspace"
+    "name": "BGMI Tournament",
+    "slug": "bgmi-tournament",
+    "version": "1.0.0",
+    "extra": {
+      "eas": {
+        "projectId": "92576ef7-ce98-450f-90e6-b9306e2173a2"
+      }
     }
   }
 }
-

@@ -43,11 +43,5 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "extra": {
-      "eas": {
-        "projectId": "824303db-e413-4097-aef3-a96b561f5a66"
-      }
-    },
-    "owner": "nanidil"
   }
 }

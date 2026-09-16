@@ -2,7 +2,7 @@
   "expo": {
     "name": "BattleZone",
     "slug": "bgmi-tournament",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "bgmi-tournament",
@@ -18,12 +18,19 @@
     },
     "android": {
       "package": "com.battlezone.app",
-      "versionCode": 1,
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#0B0B1A"
       },
-      "permissions": []
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO",
+        "READ_MEDIA_AUDIO",
+        "READ_MEDIA_VISUAL_USER_SELECTED"
+      ]
     },
     "web": {
       "favicon": "./assets/images/icon.png"
@@ -47,6 +54,13 @@
       "eas": {
         "projectId": "824303db-e413-4097-aef3-a96b561f5a66"
       }
+    },
+    "runtimeVersion": "1",
+    "updates": {
+      "url": "https://u.expo.dev/824303db-e413-4097-aef3-a96b561f5a66",
+      "enabled": true,
+      "checkAutomatically": "NEVER",
+      "fallbackToCacheTimeout": 0
     },
     "owner": "nanidil"
   }

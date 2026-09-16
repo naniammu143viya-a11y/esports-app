@@ -5,18 +5,10 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-export interface HealthStatus {
-  status: string;
-}
 
 export interface AdminPasswordUpdateRequest {
   /** @minLength 1 */
   currentPassword: string;
   /** @minLength 8 */
   newPassword: string;
-}
-
-export interface PasswordUpdateResponse {
-  success: boolean;
-  message: string;
 }

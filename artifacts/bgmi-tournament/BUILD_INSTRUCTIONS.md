@@ -28,8 +28,8 @@ use that option for phone installation.
 The project is already configured with:
 
 - Android package: `com.battlezone.app`
-- Version: `1.0.0`
-- Version code: `1`
+- Version: `1.0.1`
+- Version code: `2`
 - Production AAB profile in `eas.json`
 - Preview APK profile in `eas.json`
 
@@ -122,8 +122,8 @@ accepts the upload without package-name, version-code, signing, or bundle errors
 |----------------|--------------------------|
 | App name       | BattleZone               |
 | Package name   | com.battlezone.app       |
-| Version        | 1.0.0                    |
-| Version code   | 1                        |
+| Version        | 1.0.1                    |
+| Version code   | 2                        |
 | Min Android    | 6.0 (API 23)             |
 | Orientation    | Portrait only            |
 
@@ -139,3 +139,7 @@ Before each new Play Store release, update `app.json`:
 "version": "1.0.1",          ← human-readable
 "versionCode": 2              ← must increase by at least 1 each release
 ```
+
+The app is configured for EAS Update with a stable runtime version and checks
+for available updates when it launches. When an update is available, users can
+install it from the in-app prompt without uninstalling the app.

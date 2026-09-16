@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
+  ActivityIndicator,
   FlatList,
   Platform,
   Pressable,
@@ -103,6 +104,109 @@ function AdminUpiCard() {
           <Ionicons name="pencil-outline" size={15} color={c.mutedForeground} />
         </Pressable>
       )}
+    </View>
+  );
+}
+
+// ─── Admin Password Settings Card ─────────────────────────────────────────────
+function AdminPasswordCard() {
+  const c = useColors();
+  const { changeAdminPassword } = useAuth();
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function handleSave() {
+    if (!currentPassword) {
+      Alert.alert('Password required', 'Enter your current admin password.');
+      return;
+    }
+    if (newPassword.length < 8) {
+      Alert.alert('Password too short', 'Use at least 8 characters for the new password.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Passwords do not match', 'Confirm the new password and try again.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await changeAdminPassword(currentPassword, newPassword);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setSaved(true);
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      setTimeout(() => setSaved(false), 2500);
+    } catch (error: any) {
+      Alert.alert('Password update failed', error?.message ?? 'Please check your current password and try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <View style={[styles.passwordCard, { backgroundColor: c.card, borderColor: c.border }]}>
+      <View style={styles.upiCardHeader}>
+        <View style={[styles.upiIconWrap, { backgroundColor: 'rgba(255,107,0,0.12)' }]}>
+          <Ionicons name="lock-closed-outline" size={18} color={c.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.upiCardTitle, { color: c.foreground }]}>Admin Password</Text>
+          <Text style={[styles.upiCardSub, { color: c.mutedForeground }]}>
+            Update the backend password used for admin sign-in
+          </Text>
+        </View>
+        {saved && (
+          <View style={styles.savedBadge}>
+            <Ionicons name="checkmark-circle" size={13} color="#22C55E" />
+            <Text style={styles.savedBadgeText}>Saved</Text>
+          </View>
+        )}
+      </View>
+
+      {[
+        { placeholder: 'Current password', value: currentPassword, setValue: setCurrentPassword },
+        { placeholder: 'New password (8+ characters)', value: newPassword, setValue: setNewPassword },
+        { placeholder: 'Confirm new password', value: confirmPassword, setValue: setConfirmPassword },
+      ].map((field) => (
+        <View key={field.placeholder} style={[styles.passwordInput, { backgroundColor: c.input, borderColor: c.border }]}>
+          <Ionicons name="key-outline" size={15} color={c.mutedForeground} />
+          <TextInput
+            style={[styles.passwordInputText, { color: c.foreground }]}
+            placeholder={field.placeholder}
+            placeholderTextColor={c.mutedForeground}
+            value={field.value}
+            onChangeText={field.setValue}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+      ))}
+
+      <Pressable
+        onPress={handleSave}
+        disabled={saving}
+        style={({ pressed }) => [
+          styles.passwordSaveBtn,
+          { backgroundColor: c.primary, opacity: pressed || saving ? 0.75 : 1 },
+        ]}
+      >
+        {saving ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <>
+            <Ionicons name="shield-checkmark-outline" size={15} color="#fff" />
+            <Text style={styles.upiSaveBtnText}>Update Password</Text>
+          </>
+        )}
+      </Pressable>
     </View>
   );
 }
@@ -289,6 +393,7 @@ type EntryType = 'FREE' | 'PAID';
 
 function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onClose: () => void }) {
   const c = useColors();
+  const insets = useSafeAreaInsets();
   const [game, setGame] = useState<GameType>('BGMI');
   const [name, setName] = useState('');
   const [map, setMap] = useState('');
@@ -335,11 +440,13 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
   const statusOpts: TournamentStatus[] = ['upcoming', 'ongoing', 'completed'];
 
   return (
-    <ScrollView
-      style={[styles.formCard, { backgroundColor: c.card, borderColor: c.border }]}
+    <View style={[styles.formCard, { backgroundColor: c.card, borderColor: c.border }]}>
+      <ScrollView
+        style={styles.formScroll}
+        contentContainerStyle={styles.formScrollContent}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
-    >
+      >
       <View style={styles.formHeader}>
         <Text style={[styles.formTitle, { color: c.foreground }]}>New Tournament</Text>
         <Pressable onPress={onClose}>
@@ -557,15 +664,16 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
         ))}
       </View>
 
-      <Pressable
-        onPress={handleAdd}
-        style={({ pressed }) => [styles.addSubmitBtn, { backgroundColor: c.primary, opacity: pressed ? 0.8 : 1 }]}
-      >
-        <Text style={styles.addSubmitText}>Create Tournament</Text>
-      </Pressable>
-
-      <View style={{ height: 30 }} />
-    </ScrollView>
+      </ScrollView>
+      <View style={[styles.formFooter, { backgroundColor: c.card, borderTopColor: c.border, paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <Pressable
+          onPress={handleAdd}
+          style={({ pressed }) => [styles.addSubmitBtn, { backgroundColor: c.primary, opacity: pressed ? 0.8 : 1 }]}
+        >
+          <Text style={styles.addSubmitText}>Create Tournament</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -691,8 +799,9 @@ export default function AdminScreen() {
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <>
-              {/* UPI Settings */}
+               {/* Settings */}
               <AdminUpiCard />
+               <AdminPasswordCard />
 
               <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
                 {tournaments.length} TOURNAMENT{tournaments.length !== 1 ? 'S' : ''}
@@ -785,6 +894,18 @@ const styles = StyleSheet.create({
     borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
   },
   upiDisplayText: { fontSize: 14, fontFamily: 'Inter_500Medium', flex: 1, marginRight: 8 },
+  passwordCard: {
+    borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 20, gap: 10,
+  },
+  passwordInput: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 10, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 10,
+  },
+  passwordInputText: { flex: 1, fontSize: 14, fontFamily: 'Inter_400Regular' },
+  passwordSaveBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderRadius: 10, paddingVertical: 11, marginTop: 2,
+  },
 
   // Room card
   roomCard: { borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 12 },
@@ -819,7 +940,10 @@ const styles = StyleSheet.create({
   saveBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
 
   // Add form
-  formCard: { flex: 1, marginHorizontal: 16, borderRadius: 20, borderWidth: 1, padding: 20, marginBottom: 12 },
+  formCard: { flex: 1, marginHorizontal: 16, borderRadius: 20, borderWidth: 1, marginBottom: 12, overflow: 'hidden' },
+  formScroll: { flex: 1 },
+  formScrollContent: { padding: 20, paddingBottom: 12 },
+  formFooter: { borderTopWidth: 1, paddingHorizontal: 20, paddingTop: 12 },
   formHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   formTitle: { fontSize: 18, fontFamily: 'Inter_700Bold' },
   fLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8, marginBottom: 6, marginTop: 14 },
@@ -844,7 +968,7 @@ const styles = StyleSheet.create({
   prizeSectionSub: { fontSize: 11, fontFamily: 'Inter_400Regular' },
   rankPrizeRow: { flexDirection: 'row', gap: 8 },
   rankPrizeLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', marginBottom: 5, marginTop: 0 },
-  addSubmitBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 20 },
+  addSubmitBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   // Slot form stepper
   slotFormRow: {
     flexDirection: 'row', alignItems: 'center', borderRadius: 12,

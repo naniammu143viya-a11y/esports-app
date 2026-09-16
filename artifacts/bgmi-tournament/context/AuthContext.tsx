@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { GameType } from '@/context/TournamentContext';
+import { updateAdminPassword } from '@workspace/api-client-react';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const ADMIN_USERNAME = 'admin';
@@ -8,6 +9,7 @@ const ADMIN_PASSWORD = 'Admin@9988';
 
 const SESSION_KEY = '@bgmi_session';
 const ACCOUNTS_KEY = '@bgmi_accounts';
+const ADMIN_PASSWORD_KEY = '@bgmi_admin_password';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface User {
@@ -44,6 +46,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   updateProfile: (updates: Partial<Pick<User, 'upiId'>>) => Promise<void>;
+  changeAdminPassword: (currentPassword: string, newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -91,7 +94,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const uname = username.trim().toLowerCase();
 
     if (uname === ADMIN_USERNAME.toLowerCase()) {
-      if (password !== ADMIN_PASSWORD) throw new Error('Incorrect admin password.');
+      const storedPassword = await AsyncStorage.getItem(ADMIN_PASSWORD_KEY);
+      if (password !== (storedPassword ?? ADMIN_PASSWORD)) {
+        throw new Error('Incorrect admin password.');
+      }
       await persistSession({
         username: ADMIN_USERNAME,
         mobile: '',
@@ -115,6 +121,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAdmin: false,
       upiId: account.upiId,
     });
+  }
+
+  async function changeAdminPassword(currentPassword: string, newPassword: string): Promise<void> {
+    if (!user?.isAdmin) throw new Error('Only an admin can change the admin password.');
+    if (!currentPassword) throw new Error('Current password is required.');
+    if (newPassword.length < 8) throw new Error('New password must be at least 8 characters.');
+    if (currentPassword === newPassword) {
+      throw new Error('New password must be different from the current password.');
+    }
+
+    await updateAdminPassword({ currentPassword, newPassword });
+    await AsyncStorage.setItem(ADMIN_PASSWORD_KEY, newPassword);
   }
 
   async function register(data: RegisterData): Promise<void> {
@@ -178,7 +196,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, isLoggedIn: !!user, isLoading, login, register, updateProfile, logout }}
+      value={{
+        user,
+        isLoggedIn: !!user,
+        isLoading,
+        login,
+        register,
+        updateProfile,
+        changeAdminPassword,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>

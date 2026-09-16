@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export * from './adminPasswordUpdateRequest';
-export * from './healthStatus';
-export * from './passwordUpdateResponse';
+export interface PasswordUpdateResponse {
+  success: boolean;
+  message: string;
+}

@@ -2,26 +2,15 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - "artifacts/bgmi-tournament/**"
 
-permissions:
-  contents: read
-
-concurrency:
-  group: android-apk-${{ github.ref }}
-  cancel-in-progress: true
+env:
+  APP_DIR: artifacts/bgmi-tournament
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
 jobs:
   build-apk:
     name: Build Expo APK with EAS
     runs-on: ubuntu-latest
-    env:
-      APP_DIR: artifacts/bgmi-tournament
-      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
     steps:
       - name: Check out repository
@@ -33,18 +22,9 @@ jobs:
           node-version: 20
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v3
         with:
           version: 10.26.1
-
-      - name: Validate Expo project and credentials
-        run: |
-          test -f "$APP_DIR/app.json"
-          test -f "$APP_DIR/eas.json"
-          test -n "$EXPO_TOKEN" || {
-            echo "::error::Add EXPO_TOKEN in GitHub repository Settings > Secrets and variables > Actions."
-            exit 1
-          }
 
       - name: Install project dependencies
         run: pnpm install --no-frozen-lockfile
@@ -54,8 +34,4 @@ jobs:
         run: |
           echo '{"expo": {"name": "BGMI Tournament", "slug": "bgmi-tournament", "version": "1.0.0", "extra": {"eas": {"projectId": "92576ef7-ce98-450f-90e6-b9306e2173a2"}}}}' > app.json
           pnpm dlx eas-cli@latest build --platform android --profile preview --non-interactive
-
-
-
-
 

@@ -1,13 +1,8 @@
 {
   "expo": {
-    "extra": {
-      "eas": {
-        "projectId": "9cc855ce-83a9-47e8-90de-48ac74c2a9ac"
-      }
-    },
     "android": {
       "package": "com.nanidil.workspace"
-    },
-    "owner": "nanidil"
+    }
   }
 }
+

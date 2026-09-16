@@ -566,7 +566,26 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
       </Pressable>
 
       <View style={{ height: 30 }} />
-    </ScrollView>
+    
+              {/* Force Added Create Tournament Button */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: "#FF6B00",
+                  paddingVertical: 16,
+                  borderRadius: 12,
+                  alignItems: "center",
+                  marginTop: 24,
+                  marginBottom: 100,
+                  width: "100%",
+                }}
+                onPress={handleCreateTournament}
+              >
+                <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "bold" }}>
+                  Create Tournament
+                </Text>
+              </TouchableOpacity>
+
+</ScrollView>
   );
 }
 

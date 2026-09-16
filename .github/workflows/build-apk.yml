@@ -52,7 +52,8 @@ jobs:
       - name: Build APK with EAS
         working-directory: ${{ env.APP_DIR }}
         run: |
-          echo '{"projectId": "92576ef7-ce98-450f-90e6-b9306e2173a2"}' > app.json
+          echo '{"expo": {"extra": {"eas": {"projectId": "92576ef7-ce98-450f-90e6-b9306e2173a2"}}}}' > app.json
           pnpm dlx eas-cli@latest build --platform android --profile preview --non-interactive
+
 
 

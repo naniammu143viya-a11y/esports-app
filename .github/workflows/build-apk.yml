@@ -51,4 +51,4 @@ jobs:
 
       - name: Build APK with EAS
         working-directory: ${{ env.APP_DIR }}
-        run: pnpm dlx eas-cli@latest build --platform android --profile preview --non-interactive
+        run: pnpm dlx eas-cli@latest build --platform android --profile preview --non-interactive--auto-create

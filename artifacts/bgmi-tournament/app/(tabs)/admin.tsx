@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -338,6 +339,7 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
   return (
     <ScrollView
       style={[styles.formCard, { backgroundColor: c.card, borderColor: c.border }]}
+      contentContainerStyle={styles.formContent}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
@@ -558,34 +560,15 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
         ))}
       </View>
 
-      <Pressable
+      <TouchableOpacity
         onPress={handleAdd}
-        style={({ pressed }) => [styles.addSubmitBtn, { backgroundColor: c.primary, opacity: pressed ? 0.8 : 1 }]}
+        activeOpacity={0.8}
+        style={styles.addSubmitBtn}
       >
         <Text style={styles.addSubmitText}>Create Tournament</Text>
-      </Pressable>
+      </TouchableOpacity>
 
-      <View style={{ height: 30 }} />
-    
-              {/* Force Added Create Tournament Button */}
-              <TouchableOpacity
-                style={{
-                  backgroundColor: "#FF6B00",
-                  paddingVertical: 16,
-                  borderRadius: 12,
-                  alignItems: "center",
-                  marginTop: 24,
-                  marginBottom: 100,
-                  width: "100%",
-                }}
-                onPress={handleCreateTournament}
-              >
-                <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "bold" }}>
-                  Create Tournament
-                </Text>
-              </TouchableOpacity>
-
-</ScrollView>
+    </ScrollView>
   );
 }
 
@@ -840,7 +823,8 @@ const styles = StyleSheet.create({
   saveBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
 
   // Add form
-  formCard: { flex: 1, marginHorizontal: 16, borderRadius: 20, borderWidth: 1, padding: 20, marginBottom: 12 },
+  formCard: { flex: 1, marginHorizontal: 16, borderRadius: 20, borderWidth: 1, marginBottom: 12 },
+  formContent: { padding: 20, paddingBottom: 100 },
   formHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   formTitle: { fontSize: 18, fontFamily: 'Inter_700Bold' },
   fLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8, marginBottom: 6, marginTop: 14 },
@@ -865,7 +849,7 @@ const styles = StyleSheet.create({
   prizeSectionSub: { fontSize: 11, fontFamily: 'Inter_400Regular' },
   rankPrizeRow: { flexDirection: 'row', gap: 8 },
   rankPrizeLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', marginBottom: 5, marginTop: 0 },
-  addSubmitBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 20 },
+  addSubmitBtn: { backgroundColor: '#f97316', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 20 },
   // Slot form stepper
   slotFormRow: {
     flexDirection: 'row', alignItems: 'center', borderRadius: 12,

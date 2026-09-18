@@ -1,36 +1,26 @@
-name: Build Android APK
-
+name: Build Expo APK with EAS
 on:
   workflow_dispatch:
 
-env:
-  APP_DIR: artifacts/bgmi-tournament
-  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-
 jobs:
-  build-apk:
-    name: Build Expo APK with EAS
+  build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Check out repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Set up pnpm
+      - name: Setup pnpm
         uses: pnpm/action-setup@v3
         with:
-          version: 10.26.1
+          version: 8
 
       - name: Install project dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install
+
       - name: Build APK with EAS
-        working-directory: ${{ env.APP_DIR }}
-        run: |
-          pnpm dlx eas-cli@latest login --token ${{ secrets.EXPO_TOKEN }}
-          echo '{"expo": {"name": "BGMI Tournament", "slug": "bgmi-tournament", "version": "1.0.0", "extra": {"eas": {"projectId": "xN6g5FD91iwwWutHKkmQxLkfOW__NJxt4Qv_XGRt"}}}}' > app.json
-          pnpm dlx eas-cli@latest build --platform android --profile preview --local --non-interactive
+        run: pnpm dlx eas-cli@latest build --platform android --profile preview --non-interactive

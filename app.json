@@ -2,10 +2,11 @@
   "expo": {
     "name": "BGMI Tournament",
     "slug": "bgmi-tournament",
+    "owner": "vndoriginals",
     "version": "1.0.0",
     "extra": {
       "eas": {
-        "projectId": "824303db-e413-4097-aef3-a96b561f5a66"
+        "projectId": "992bd60e-2781-48b8-b42e-c6cbc271d77f"
       }
     }
   }

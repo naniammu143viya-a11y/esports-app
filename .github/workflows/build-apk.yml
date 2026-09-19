@@ -31,3 +31,5 @@ jobs:
       - name: Build APK with EAS
         working-directory: artifacts/bgmi-tournament
         run: pnpm dlx eas-cli@latest build --platform android --profile preview --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

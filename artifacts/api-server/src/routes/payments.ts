@@ -18,6 +18,10 @@ type VerificationBody = {
   mobile?: string;
   gameId?: string;
   gameType?: string;
+  status?: string;
+  date?: string;
+  time?: string;
+  completedAt?: string;
 };
 
 function normalizedUtr(value: unknown): string {
@@ -26,8 +30,19 @@ function normalizedUtr(value: unknown): string {
 
 function adminAuthorized(req: Request): boolean {
   const configuredSecret = process.env.PAYMENT_ADMIN_SECRET;
-  return process.env.NODE_ENV !== "production" ||
-    Boolean(configuredSecret && req.header("x-payment-admin-secret") === configuredSecret);
+  return (
+    process.env.NODE_ENV !== "production" ||
+    Boolean(
+      configuredSecret &&
+      req.header("x-payment-admin-secret") === configuredSecret,
+    )
+  );
+}
+
+function scheduledStartAt(date?: string, time?: string): number | null {
+  if (!date || !time) return null;
+  const timestamp = new Date(`${date}T${time}:00`).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
 }
 
 router.post("/payments/webhook", async (req, res) => {
@@ -36,7 +51,10 @@ router.post("/payments/webhook", async (req, res) => {
     res.status(503).json({ error: "Payment webhook secret is not configured" });
     return;
   }
-  if (webhookSecret && req.header("x-payment-webhook-secret") !== webhookSecret) {
+  if (
+    webhookSecret &&
+    req.header("x-payment-webhook-secret") !== webhookSecret
+  ) {
     res.status(401).json({ error: "Invalid payment webhook signature" });
     return;
   }
@@ -44,7 +62,9 @@ router.post("/payments/webhook", async (req, res) => {
   const utr = normalizedUtr(req.body?.utr);
   const amount = Number(req.body?.amount);
   if (!UTR_PATTERN.test(utr) || !Number.isInteger(amount) || amount <= 0) {
-    res.status(400).json({ error: "A 12-digit UTR and positive amount are required" });
+    res
+      .status(400)
+      .json({ error: "A 12-digit UTR and positive amount are required" });
     return;
   }
 
@@ -54,7 +74,10 @@ router.post("/payments/webhook", async (req, res) => {
       .values({
         utr,
         amount,
-        source: typeof req.body?.source === "string" ? req.body.source : "bank_webhook",
+        source:
+          typeof req.body?.source === "string"
+            ? req.body.source
+            : "bank_webhook",
         status: "RECEIVED",
       })
       .onConflictDoNothing({ target: paymentTransactions.utr })
@@ -75,13 +98,42 @@ router.post("/payments/verify", async (req, res) => {
   const body = req.body as VerificationBody;
   const utr = normalizedUtr(body.utr);
   const amount = Number(body.amount);
-  const tournamentId = typeof body.tournamentId === "string" ? body.tournamentId.trim() : "";
-  const username = typeof body.username === "string" ? body.username.trim() : "";
+  const tournamentId =
+    typeof body.tournamentId === "string" ? body.tournamentId.trim() : "";
+  const username =
+    typeof body.username === "string" ? body.username.trim() : "";
   const gameType = typeof body.gameType === "string" ? body.gameType : "BGMI";
 
-  if (!UTR_PATTERN.test(utr) || !Number.isInteger(amount) || amount <= 0 || !tournamentId || !username) {
+  if (
+    !UTR_PATTERN.test(utr) ||
+    !Number.isInteger(amount) ||
+    amount <= 0 ||
+    !tournamentId ||
+    !username
+  ) {
     res.status(400).json({ error: "Enter a valid 12-digit UTR number" });
     return;
+  }
+
+  const completedAt = body.completedAt
+    ? new Date(body.completedAt).getTime()
+    : null;
+  const completionExpired =
+    completedAt !== null &&
+    Number.isFinite(completedAt) &&
+    Date.now() - completedAt >= 60 * 60 * 1000;
+  if (body.status === "completed" || completionExpired) {
+    res
+      .status(409)
+      .json({ error: "This tournament is no longer accepting entries" });
+    return;
+  }
+
+  // A stale "upcoming" client status is allowed once its scheduled start has arrived;
+  // the app and this API therefore agree on the effective live state.
+  const startAt = scheduledStartAt(body.date, body.time);
+  if (body.status === "upcoming" && startAt !== null && startAt > Date.now()) {
+    // The tournament is still upcoming, but registration remains valid.
   }
 
   try {
@@ -192,7 +244,8 @@ router.post("/payments/verify", async (req, res) => {
 });
 
 router.get("/payments/joins", async (req, res) => {
-  const username = typeof req.query.username === "string" ? req.query.username.trim() : "";
+  const username =
+    typeof req.query.username === "string" ? req.query.username.trim() : "";
   if (!username) {
     res.status(400).json({ error: "Username is required" });
     return;
@@ -244,16 +297,19 @@ router.post("/payments/:id/review", async (req, res) => {
       let paymentId = attempt.paymentId ?? undefined;
       if (action === "APPROVE" && !paymentId) {
         paymentId = `PAYMANUAL${Date.now().toString(36).toUpperCase()}`;
-        await tx.insert(tournamentPaymentJoins).values({
-          paymentId,
-          tournamentId: attempt.tournamentId,
-          utr: attempt.utr,
-          username: attempt.username,
-          mobile: attempt.mobile,
-          gameId: attempt.gameId,
-          gameType: attempt.gameType,
-          amount: attempt.amount,
-        }).onConflictDoNothing({ target: tournamentPaymentJoins.utr });
+        await tx
+          .insert(tournamentPaymentJoins)
+          .values({
+            paymentId,
+            tournamentId: attempt.tournamentId,
+            utr: attempt.utr,
+            username: attempt.username,
+            mobile: attempt.mobile,
+            gameId: attempt.gameId,
+            gameType: attempt.gameType,
+            amount: attempt.amount,
+          })
+          .onConflictDoNothing({ target: tournamentPaymentJoins.utr });
       }
       const [row] = await tx
         .update(paymentVerificationAttempts)

@@ -23,13 +23,30 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install project dependencies
         run: pnpm install --no-frozen-lockfile
 
       - name: Build APK with EAS
         working-directory: artifacts/bgmi-tournament
-        run: pnpm dlx eas-cli@latest build --platform android --profile preview --non-interactive
+        run: |
+          pnpm dlx eas-cli@latest build \
+            --platform android \
+            --profile preview \
+            --non-interactive \
+            --json > eas-build.json
+          BUILD_URL=$(node -e "const builds = require('./eas-build.json'); const build = Array.isArray(builds) ? builds[0] : builds; process.stdout.write(build?.artifacts?.buildUrl || '')")
+          test -n "$BUILD_URL"
+          curl --fail --location "$BUILD_URL" --output BattleZone.apk
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Publish latest APK download
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest APK
+          prerelease: true
+          make_latest: true
+          files: artifacts/bgmi-tournament/BattleZone.apk

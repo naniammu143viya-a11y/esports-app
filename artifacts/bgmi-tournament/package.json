@@ -8,7 +8,7 @@
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "eas-build-pre-install": "corepack enable && corepack prepare pnpm@10.26.1 --activate"
+    "eas-build-pre-install": "corepack enable && corepack prepare pnpm@9.15.9 --activate && pnpm install --no-frozen-lockfile"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -62,5 +62,5 @@
     "expo-intent-launcher": "~57.0.1",
     "react-native-qrcode-svg": "^6.3.21"
   },
-  "packageManager": "pnpm@10.26.1"
+  "packageManager": "pnpm@9.15.9"
 }

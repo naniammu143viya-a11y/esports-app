@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   statItem: {
-    flex: 1,
+    flex: 1.5,
     minWidth: 0,
     alignItems: "center",
     paddingHorizontal: 6,
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(234,179,8,0.10)",
   },
   winnerText: {
-    flex: 1,
+    flex: 1.5,
     color: "#EAB308",
     fontSize: 11,
     fontFamily: "Inter_600SemiBold",

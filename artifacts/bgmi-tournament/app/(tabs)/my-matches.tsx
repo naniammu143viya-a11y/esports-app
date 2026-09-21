@@ -265,7 +265,12 @@ function MatchCard({
           <Text style={[styles.prizeLabel, { color: c.mutedForeground }]}>
             ENTRY
           </Text>
-          <Text style={[styles.prizeVal, { color: c.foreground }]}>
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            style={[styles.prizeVal, { color: c.foreground }]}
+          >
             {tournament.entryFee === 0
               ? "FREE"
               : `₹${tournament.entryFee.toLocaleString("en-IN")}`}
@@ -275,7 +280,12 @@ function MatchCard({
           <Text style={[styles.prizeLabel, { color: c.mutedForeground }]}>
             PRIZE POOL
           </Text>
-          <Text style={[styles.prizeVal, { color: c.accent }]}>
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            style={[styles.prizeVal, { color: c.accent }]}
+          >
             ₹{tournament.prizePool.toLocaleString("en-IN")}
           </Text>
         </View>
@@ -436,7 +446,7 @@ const styles = StyleSheet.create({
   },
   prizeItem: {
     flex: 1,
-    minWidth: 88,
+    minWidth: 0,
     paddingHorizontal: 6,
   },
   prizeLabel: {

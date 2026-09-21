@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   },
   statItem: {
     flex: 1,
-    minWidth: 92,
+    minWidth: 0,
     alignItems: "center",
     paddingHorizontal: 6,
   },

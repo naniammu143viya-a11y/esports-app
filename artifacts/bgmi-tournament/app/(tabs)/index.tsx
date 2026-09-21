@@ -106,7 +106,7 @@ export default function LobbyScreen() {
     <View style={[styles.root, { backgroundColor: c.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 10 }]}>
-        <View>
+        <View style={styles.headerIdentity}>
           <Text style={[styles.headerGreeting, { color: c.mutedForeground }]}>
             Welcome back,
           </Text>
@@ -115,18 +115,23 @@ export default function LobbyScreen() {
           </Text>
         </View>
         <View style={styles.headerActions}>
-          <Pressable
-            onPress={handleCheckForUpdates}
-            style={({ pressed }) => [
-              styles.updateBtn,
-              { backgroundColor: c.muted, opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            <Ionicons name="download-outline" size={15} color={c.primary} />
-            <Text style={[styles.updateText, { color: c.primary }]}>
-              Check for Updates
-            </Text>
-          </Pressable>
+          {user?.isAdmin === true && (
+            <Pressable
+              onPress={handleCheckForUpdates}
+              style={({ pressed }) => [
+                styles.updateBtn,
+                { backgroundColor: c.muted, opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <Ionicons name="download-outline" size={15} color={c.primary} />
+              <Text
+                numberOfLines={1}
+                style={[styles.updateText, { color: c.primary }]}
+              >
+                Check for Updates
+              </Text>
+            </Pressable>
+          )}
           <Pressable
             onPress={handleLogout}
             style={({ pressed }) => [
@@ -264,17 +269,29 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   headerGreeting: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  headerIdentity: { flex: 1, minWidth: 0 },
   headerName: { fontSize: 20, fontFamily: "Inter_700Bold" },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  headerActions: {
+    flexShrink: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   updateBtn: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 5,
     borderRadius: 9,
-    paddingHorizontal: 9,
-    paddingVertical: 7,
+    minWidth: 136,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
   },
-  updateText: { fontSize: 10, fontFamily: "Inter_700Bold" },
+  updateText: {
+    flexShrink: 0,
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
+  },
   logoutBtn: { padding: 4 },
   filterContainer: { paddingHorizontal: 16, marginBottom: 8 },
   gameFilterRow: {

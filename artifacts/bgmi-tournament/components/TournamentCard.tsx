@@ -137,12 +137,17 @@ export function TournamentCard({ tournament, isJoined, onJoin }: Props) {
             ENTRY
           </Text>
           <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
             style={[
               styles.statValue,
               { color: tournament.entryFee > 0 ? c.primary : "#22C55E" },
             ]}
           >
-            {tournament.entryFee === 0 ? "FREE" : `₹${tournament.entryFee}`}
+            {tournament.entryFee === 0
+              ? "FREE"
+              : `₹${tournament.entryFee.toLocaleString("en-IN")}`}
           </Text>
         </View>
         <View style={[styles.statDivider, { backgroundColor: c.border }]} />
@@ -150,8 +155,13 @@ export function TournamentCard({ tournament, isJoined, onJoin }: Props) {
           <Text style={[styles.statLabel, { color: c.mutedForeground }]}>
             PRIZE POOL
           </Text>
-          <Text style={[styles.statValue, { color: c.accent }]}>
-            ₹{tournament.prizePool.toLocaleString()}
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            style={[styles.statValue, { color: c.accent }]}
+          >
+            ₹{tournament.prizePool.toLocaleString("en-IN")}
           </Text>
         </View>
         <View style={[styles.statDivider, { backgroundColor: c.border }]} />
@@ -160,6 +170,9 @@ export function TournamentCard({ tournament, isJoined, onJoin }: Props) {
             SEATS
           </Text>
           <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
             style={[
               styles.statValue,
               { color: isFull ? "#EF4444" : c.foreground },
@@ -272,7 +285,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 14,
   },
-  statItem: { flex: 1, alignItems: "center" },
+  statItem: {
+    flex: 1,
+    minWidth: 92,
+    alignItems: "center",
+    paddingHorizontal: 6,
+  },
   statDivider: { width: 1, height: 28 },
   statLabel: {
     fontSize: 9,
@@ -280,7 +298,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 2,
   },
-  statValue: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  statValue: {
+    paddingHorizontal: 4,
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+  },
   bottomRow: {
     flexDirection: "row",
     alignItems: "center",

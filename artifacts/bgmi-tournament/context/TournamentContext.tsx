@@ -97,125 +97,9 @@ const PAYMENTS_KEY = "@bgmi_payments";
 const REGISTRATIONS_KEY = "@bgmi_registrations";
 
 const DEFAULT_RANK_PRIZES: RankPrizes = { rank1: 0, rank2: 0, rank3: 0 };
-
-const MOCK_TOURNAMENTS: Tournament[] = [
-  {
-    id: "1",
-    game: "BGMI",
-    name: "Battleground Masters",
-    map: "Erangel",
-    entryFee: 50,
-    prizePool: 5000,
-    status: "live",
-    teamSize: 4,
-    maxTeams: 25,
-    registeredTeams: 18,
-    date: "2026-07-14",
-    time: "20:00",
-    perKillPrize: 5,
-    rankPrizes: { rank1: 100, rank2: 60, rank3: 30 },
-  },
-  {
-    id: "2",
-    game: "FreeFire",
-    name: "Booyah Cup",
-    map: "Bermuda",
-    entryFee: 30,
-    prizePool: 3000,
-    status: "live",
-    teamSize: 4,
-    maxTeams: 20,
-    registeredTeams: 15,
-    date: "2026-07-14",
-    time: "21:00",
-    perKillPrize: 3,
-    rankPrizes: { rank1: 75, rank2: 40, rank3: 20 },
-  },
-  {
-    id: "3",
-    game: "BGMI",
-    name: "Pro League Season 5",
-    map: "Miramar",
-    entryFee: 100,
-    prizePool: 10000,
-    status: "upcoming",
-    teamSize: 4,
-    maxTeams: 30,
-    registeredTeams: 8,
-    date: "2026-07-16",
-    time: "18:00",
-    perKillPrize: 10,
-    rankPrizes: { rank1: 300, rank2: 150, rank3: 75 },
-  },
-  {
-    id: "4",
-    game: "FreeFire",
-    name: "Clash Squad Champions",
-    map: "Purgatory",
-    entryFee: 20,
-    prizePool: 2000,
-    status: "upcoming",
-    teamSize: 4,
-    maxTeams: 16,
-    registeredTeams: 3,
-    date: "2026-07-17",
-    time: "19:00",
-    perKillPrize: 2,
-    rankPrizes: { rank1: 50, rank2: 25, rank3: 10 },
-  },
-  {
-    id: "5",
-    game: "BGMI",
-    name: "Weekend Warriors",
-    map: "Vikendi",
-    entryFee: 75,
-    prizePool: 7500,
-    status: "upcoming",
-    teamSize: 4,
-    maxTeams: 25,
-    registeredTeams: 20,
-    date: "2026-07-18",
-    time: "20:30",
-    perKillPrize: 7,
-    rankPrizes: { rank1: 200, rank2: 100, rank3: 50 },
-  },
-  {
-    id: "6",
-    game: "FreeFire",
-    name: "Grand Open 2026",
-    map: "Kalahari",
-    entryFee: 0,
-    prizePool: 1000,
-    status: "completed",
-    teamSize: 4,
-    maxTeams: 20,
-    registeredTeams: 20,
-    date: "2026-07-12",
-    time: "18:00",
-    roomId: "GGOP2026",
-    password: "ffire123",
-    perKillPrize: 0,
-    rankPrizes: DEFAULT_RANK_PRIZES,
-    completedAt: "2026-07-14T22:00:00.000Z",
-    winnerNote: "Winner: BGMI-1001",
-  },
-  {
-    id: "7",
-    game: "BGMI",
-    name: "Chicken Dinner Classic",
-    map: "Sanhok",
-    entryFee: 0,
-    prizePool: 500,
-    status: "upcoming",
-    teamSize: 4,
-    maxTeams: 20,
-    registeredTeams: 6,
-    date: "2026-07-20",
-    time: "17:00",
-    perKillPrize: 0,
-    rankPrizes: DEFAULT_RANK_PRIZES,
-  },
-];
+// Remove the original seeded records from devices that already opened an older
+// build, while preserving tournaments created by an admin.
+const LEGACY_SEED_IDS = new Set(["1", "2", "3", "4", "5", "6", "7"]);
 
 /** Parse the scheduled tournament start in the device's local timezone. */
 export function getTournamentStartTime(
@@ -294,17 +178,19 @@ export function TournamentProvider({
           AsyncStorage.getItem(REGISTRATIONS_KEY),
         ]);
         // Migrate old tournaments that lack prize fields or used "ongoing".
-        const parsed: Tournament[] = rawT
-          ? (JSON.parse(rawT) as any[]).map((t) => ({
-              perKillPrize: 0,
-              rankPrizes: DEFAULT_RANK_PRIZES,
-              ...t,
-              status: t.status === "ongoing" ? "live" : t.status,
-            }))
-          : MOCK_TOURNAMENTS;
+        const rawRecords: any[] = rawT ? (JSON.parse(rawT) as any[]) : [];
+        const parsed: Tournament[] = rawRecords
+          .filter((t) => !LEGACY_SEED_IDS.has(String(t.id)))
+          .map((t) => ({
+            perKillPrize: 0,
+            rankPrizes: DEFAULT_RANK_PRIZES,
+            ...t,
+            status: t.status === "ongoing" ? "live" : t.status,
+          }));
+        const removedLegacySeeds = parsed.length !== rawRecords.length;
         const lifecycle = applyAutomaticLifecycle(parsed);
         setTournaments(lifecycle.tournaments);
-        if (lifecycle.changed || !rawT) {
+        if (lifecycle.changed || removedLegacySeeds || !rawT) {
           await AsyncStorage.setItem(
             TOURNAMENTS_KEY,
             JSON.stringify(lifecycle.tournaments),
@@ -362,8 +248,7 @@ export function TournamentProvider({
           }
         }
       } catch {
-        const lifecycle = applyAutomaticLifecycle(MOCK_TOURNAMENTS);
-        setTournaments(lifecycle.tournaments);
+        setTournaments([]);
       }
     })();
   }, [user?.username]);

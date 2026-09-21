@@ -266,7 +266,9 @@ function MatchCard({
             ENTRY
           </Text>
           <Text style={[styles.prizeVal, { color: c.foreground }]}>
-            {tournament.entryFee === 0 ? "FREE" : `₹${tournament.entryFee}`}
+            {tournament.entryFee === 0
+              ? "FREE"
+              : `₹${tournament.entryFee.toLocaleString("en-IN")}`}
           </Text>
         </View>
         <View style={styles.prizeItem}>
@@ -274,7 +276,7 @@ function MatchCard({
             PRIZE POOL
           </Text>
           <Text style={[styles.prizeVal, { color: c.accent }]}>
-            ₹{tournament.prizePool.toLocaleString()}
+            ₹{tournament.prizePool.toLocaleString("en-IN")}
           </Text>
         </View>
         <View style={styles.prizeItem}>
@@ -427,15 +429,28 @@ const styles = StyleSheet.create({
   },
   infoItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   infoText: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  prizeRow: { flexDirection: "row", gap: 20, marginBottom: 14 },
-  prizeItem: {},
+  prizeRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 14,
+  },
+  prizeItem: {
+    flex: 1,
+    minWidth: 88,
+    paddingHorizontal: 6,
+  },
   prizeLabel: {
     fontSize: 9,
     fontFamily: "Inter_600SemiBold",
     letterSpacing: 0.5,
     marginBottom: 2,
   },
-  prizeVal: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  prizeVal: {
+    paddingHorizontal: 4,
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+  },
   sectionDivider: { height: 1, marginBottom: 12 },
   roomTitle: {
     fontSize: 10,

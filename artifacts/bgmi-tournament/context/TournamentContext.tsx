@@ -196,9 +196,16 @@ export function TournamentProvider({
             JSON.stringify(lifecycle.tournaments),
           );
         }
-        setFreeJoins(rawJ ? JSON.parse(rawJ) : []);
-        setPayments(rawP ? JSON.parse(rawP) : {});
-        setRegistrations(rawR ? JSON.parse(rawR) : []);
+        const storedFreeJoins: string[] = rawJ ? JSON.parse(rawJ) : [];
+        const storedPayments: Record<string, Payment> = rawP
+          ? JSON.parse(rawP)
+          : {};
+        const storedRegistrations: Registration[] = rawR
+          ? JSON.parse(rawR)
+          : [];
+        setFreeJoins(storedFreeJoins);
+        setPayments(storedPayments);
+        setRegistrations(storedRegistrations);
 
         if (user?.username && process.env.EXPO_PUBLIC_DOMAIN) {
           const response = await fetch(
@@ -240,10 +247,29 @@ export function TournamentProvider({
                 amount: join.amount,
               });
             }
-            setPayments(serverPayments);
-            setRegistrations((previous) => [
-              ...previous.filter((registration) => registration.amount === 0),
+            // Keep the local cache for joins that are not returned by the API
+            // (including free matches), while letting server records take priority.
+            const mergedPayments = { ...storedPayments, ...serverPayments };
+            const serverPaymentIds = new Set(
+              serverRegistrations.map((registration) => registration.paymentId),
+            );
+            const mergedRegistrations = [
+              ...storedRegistrations.filter(
+                (registration) => !serverPaymentIds.has(registration.paymentId),
+              ),
               ...serverRegistrations,
+            ];
+            setPayments(mergedPayments);
+            setRegistrations(mergedRegistrations);
+            await Promise.all([
+              AsyncStorage.setItem(
+                PAYMENTS_KEY,
+                JSON.stringify(mergedPayments),
+              ),
+              AsyncStorage.setItem(
+                REGISTRATIONS_KEY,
+                JSON.stringify(mergedRegistrations),
+              ),
             ]);
           }
         }
@@ -315,15 +341,24 @@ export function TournamentProvider({
 
     const newPayments = { ...payments, [id]: payment };
     const newRegistrations = [...registrations, registration];
+    const newFreeJoins = freeJoins.includes(id)
+      ? freeJoins
+      : [...freeJoins, id];
     const updated = tournaments.map((t) =>
       t.id === id
         ? { ...t, registeredTeams: Math.min(t.registeredTeams + 1, t.maxTeams) }
         : t,
     );
 
+    setFreeJoins(newFreeJoins);
     setPayments(newPayments);
     setRegistrations(newRegistrations);
-    await Promise.all([persistTournaments(updated)]);
+    await Promise.all([
+      AsyncStorage.setItem(JOINED_KEY, JSON.stringify(newFreeJoins)),
+      AsyncStorage.setItem(PAYMENTS_KEY, JSON.stringify(newPayments)),
+      AsyncStorage.setItem(REGISTRATIONS_KEY, JSON.stringify(newRegistrations)),
+      persistTournaments(updated),
+    ]);
   }
 
   // ─── Legacy free join (no player info) ────────────────────────────────────

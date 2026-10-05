@@ -30,19 +30,9 @@ export function PaymentReviewPanel() {
     const url = paymentsUrl();
     if (!url) return;
     try {
-      const response = await fetch(url, { headers: {
-      'Origin': 'https://workspace.replit.dev',
-      'Referer': 'https://workspace.replit.dev',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Origin': 'https://workspace.replit.dev',
-      'Referer': 'https://workspace.replit.dev',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Origin': 'https://workspace.replit.dev',
-      'Referer': 'https://workspace.replit.dev',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Origin': 'https://workspace.replit.dev',
-      'Referer': 'https://workspace.replit.dev',
-      'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' } });
+      const response = await fetch(url, {
+        headers: { Accept: "application/json" },
+      });
       const payload = await response.json() as { payments?: PaymentAttempt[]; error?: string };
       if (!response.ok) throw new Error(payload.error ?? 'Unable to load payment status');
       setPayments(payload.payments ?? []);
@@ -66,18 +56,8 @@ export function PaymentReviewPanel() {
       const response = await fetch(paymentsUrl(`/${id}/review`), {
         method: 'POST',
         headers: {
-      'Origin': 'https://workspace.replit.dev',
-      'Referer': 'https://workspace.replit.dev',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Origin': 'https://workspace.replit.dev',
-      'Referer': 'https://workspace.replit.dev',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Origin': 'https://workspace.replit.dev',
-      'Referer': 'https://workspace.replit.dev',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Origin': 'https://workspace.replit.dev',
-      'Referer': 'https://workspace.replit.dev',
-      'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' },
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ action }),
       });
       const payload = await response.json() as { error?: string };

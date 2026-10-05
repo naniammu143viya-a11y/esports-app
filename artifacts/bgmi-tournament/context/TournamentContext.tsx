@@ -399,7 +399,6 @@ export function TournamentProvider({
       tournamentId: id,
       status: "FREE",
       paymentId,
-      roomAccessToken: serverJoin.roomAccessToken,
       paidAt: now,
       amount: 0,
     };
@@ -469,18 +468,8 @@ export function TournamentProvider({
     const response = await fetch(`https://${domain}/api/payments/verify`, {
       method: "POST",
       headers: {
-      'Origin': 'https://workspace.replit.dev',
-      'Referer': 'https://workspace.replit.dev',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Origin': 'https://workspace.replit.dev',
-      'Referer': 'https://workspace.replit.dev',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Origin': 'https://workspace.replit.dev',
-      'Referer': 'https://workspace.replit.dev',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Origin': 'https://workspace.replit.dev',
-      'Referer': 'https://workspace.replit.dev',
-      'X-Requested-With': 'XMLHttpRequest', "Content-Type": "application/json" },
+      "Content-Type": "application/json",
+    },
       body: JSON.stringify({
         tournamentId,
         amount,

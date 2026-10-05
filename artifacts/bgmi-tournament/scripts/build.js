@@ -260,18 +260,8 @@ async function downloadManifest(platform) {
     console.log(`Fetching ${platform} manifest...`);
     const response = await fetch('http://localhost:8081/manifest', {
       headers: {
-      'Origin': 'https://workspace.replit.dev',
-      'Referer': 'https://workspace.replit.dev',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Origin': 'https://workspace.replit.dev',
-      'Referer': 'https://workspace.replit.dev',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Origin': 'https://workspace.replit.dev',
-      'Referer': 'https://workspace.replit.dev',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Origin': 'https://workspace.replit.dev',
-      'Referer': 'https://workspace.replit.dev',
-      'X-Requested-With': 'XMLHttpRequest', 'expo-platform': platform },
+        'expo-platform': platform,
+      },
       signal: controller.signal,
     });
 

@@ -468,7 +468,10 @@ export function TournamentProvider({
     if (!domain) throw new Error("Payment service is not configured.");
     const response = await fetch(`https://${domain}/api/payments/verify`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+      'Origin': 'https://workspace.replit.dev',
+      'Referer': 'https://workspace.replit.dev',
+      'X-Requested-With': 'XMLHttpRequest', "Content-Type": "application/json" },
       body: JSON.stringify({
         tournamentId,
         amount,

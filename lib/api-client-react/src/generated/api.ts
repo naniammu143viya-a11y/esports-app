@@ -235,7 +235,8 @@ export const joinFreeTournament = async (id: string,
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(freeTournamentJoinRequest)
   }
 );}
@@ -395,7 +396,8 @@ export const createAdminSession = async (adminSessionRequest: AdminSessionReques
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(adminSessionRequest)
   }
 );}
@@ -466,7 +468,8 @@ export const importTournaments = async (importTournamentsBody: ImportTournaments
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(importTournamentsBody)
   }
 );}
@@ -537,7 +540,8 @@ export const createTournament = async (tournament: Tournament, options?: Request
   {
     ...options,
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(tournament)
   }
 );}
@@ -609,7 +613,8 @@ export const updateTournament = async (id: string,
   {
     ...options,
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(tournamentPatch)
   }
 );}

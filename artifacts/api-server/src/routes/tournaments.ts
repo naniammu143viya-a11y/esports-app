@@ -1,4 +1,4 @@
-import { createHmac, createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
@@ -12,9 +12,14 @@ import {
   createTournamentRoomAccessToken,
   verifyTournamentRoomAccessToken,
 } from "../lib/tournamentRoomAccess";
+import {
+  createAdminToken,
+  isSessionSigningConfigured,
+  requestHasAdminToken,
+  requireAdmin,
+} from "../lib/sessionTokens";
 
 const router: IRouter = Router();
-const ADMIN_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const DEFAULT_TOURNAMENT_ADMIN_PASSWORD = "Admin@9988";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -66,59 +71,6 @@ function isTournament(value: unknown): value is StoredTournament {
   );
 }
 
-function sessionSecret(): string | null {
-  return process.env.SESSION_SECRET || null;
-}
-
-function createAdminToken(now = Date.now()): { token: string; expiresAt: string } {
-  const secret = sessionSecret();
-  if (!secret) throw new Error("Admin session signing is not configured.");
-
-  const expiresAtMs = now + ADMIN_SESSION_TTL_MS;
-  const payload = Buffer.from(
-    JSON.stringify({ role: "admin", exp: expiresAtMs }),
-  ).toString("base64url");
-  const signature = createHmac("sha256", secret).update(payload).digest("base64url");
-  return { token: `${payload}.${signature}`, expiresAt: new Date(expiresAtMs).toISOString() };
-}
-
-function isAdminTokenValid(token: string | undefined): boolean {
-  const secret = sessionSecret();
-  if (!secret || !token) return false;
-
-  const [payload, signature, extra] = token.split(".");
-  if (!payload || !signature || extra !== undefined) return false;
-
-  const expected = createHmac("sha256", secret).update(payload).digest();
-  const supplied = Buffer.from(signature, "base64url");
-  if (expected.length !== supplied.length || !timingSafeEqual(expected, supplied))
-    return false;
-
-  try {
-    const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
-      role?: unknown;
-      exp?: unknown;
-    };
-    return data.role === "admin" && typeof data.exp === "number" && data.exp > Date.now();
-  } catch {
-    return false;
-  }
-}
-
-function requestHasAdminToken(req: Request): boolean {
-  const authorization = req.header("authorization");
-  const match = authorization?.match(/^Bearer\s+(.+)$/i);
-  return isAdminTokenValid(match?.[1]);
-}
-
-function requireAdmin(req: Request, res: Response): boolean {
-  if (!requestHasAdminToken(req)) {
-    res.status(401).json({ error: "A valid admin session is required." });
-    return false;
-  }
-  return true;
-}
-
 function passwordMatches(candidate: string, expected: string): boolean {
   const candidateHash = createHash("sha256").update(candidate).digest();
   const expectedHash = createHash("sha256").update(expected).digest();
@@ -128,7 +80,7 @@ function passwordMatches(candidate: string, expected: string): boolean {
 router.post("/admin/session", (req, res) => {
   const expected =
     process.env.TOURNAMENT_ADMIN_PASSWORD || DEFAULT_TOURNAMENT_ADMIN_PASSWORD;
-  if (!sessionSecret()) {
+  if (!isSessionSigningConfigured()) {
     res.status(503).json({ error: "Tournament admin login is not configured." });
     return;
   }

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './adminPasswordResetRequest';
 export * from './adminSession';
 export * from './adminSessionRequest';
 export * from './freeTournamentJoin';
@@ -16,7 +17,14 @@ export * from './healthStatus';
 export * from './importTournaments200';
 export * from './importTournamentsBody';
 export * from './listTournaments200';
+export * from './playerAccountRegistration';
+export * from './playerCredentials';
+export * from './playerProfile';
+export * from './playerProfileGameType';
+export * from './playerProfilePatch';
+export * from './playerSession';
 export * from './rankPrizes';
+export * from './resetUserPassword200';
 export * from './tournament';
 export * from './tournamentGame';
 export * from './tournamentPatch';

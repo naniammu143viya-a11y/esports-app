@@ -18,6 +18,206 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Create a player account
+ */
+export const registerPlayerAccountBodyOneUsernameMax = 100;
+
+export const registerPlayerAccountBodyOneMobileRegExp = new RegExp('^\\d{10}$');
+export const registerPlayerAccountBodyOneGameIdMax = 100;
+
+export const registerPlayerAccountBodyOneUpiIdMax = 128;
+
+export const registerPlayerAccountBodyTwoPasswordMin = 6;
+export const registerPlayerAccountBodyTwoPasswordMax = 200;
+
+
+
+export const RegisterPlayerAccountBody = zod.object({
+  "username": zod.string().min(1).max(registerPlayerAccountBodyOneUsernameMax),
+  "mobile": zod.string().regex(registerPlayerAccountBodyOneMobileRegExp),
+  "gameId": zod.string().min(1).max(registerPlayerAccountBodyOneGameIdMax),
+  "gameType": zod.enum(['BGMI', 'FreeFire']),
+  "upiId": zod.string().max(registerPlayerAccountBodyOneUpiIdMax).optional()
+}).and(zod.object({
+  "password": zod.string().min(registerPlayerAccountBodyTwoPasswordMin).max(registerPlayerAccountBodyTwoPasswordMax)
+}))
+
+export const registerPlayerAccountResponseUserUsernameMax = 100;
+
+export const registerPlayerAccountResponseUserMobileRegExp = new RegExp('^\\d{10}$');
+export const registerPlayerAccountResponseUserGameIdMax = 100;
+
+export const registerPlayerAccountResponseUserUpiIdMax = 128;
+
+
+
+export const RegisterPlayerAccountResponse = zod.object({
+  "token": zod.string(),
+  "expiresAt": zod.coerce.date(),
+  "user": zod.object({
+  "username": zod.string().min(1).max(registerPlayerAccountResponseUserUsernameMax),
+  "mobile": zod.string().regex(registerPlayerAccountResponseUserMobileRegExp),
+  "gameId": zod.string().min(1).max(registerPlayerAccountResponseUserGameIdMax),
+  "gameType": zod.enum(['BGMI', 'FreeFire']),
+  "upiId": zod.string().max(registerPlayerAccountResponseUserUpiIdMax).optional()
+})
+})
+
+
+/**
+ * @summary Sign in to a player account
+ */
+export const loginPlayerAccountBodyUsernameMax = 100;
+
+export const loginPlayerAccountBodyPasswordMax = 200;
+
+
+
+export const LoginPlayerAccountBody = zod.object({
+  "username": zod.string().min(1).max(loginPlayerAccountBodyUsernameMax),
+  "password": zod.string().min(1).max(loginPlayerAccountBodyPasswordMax)
+})
+
+export const loginPlayerAccountResponseUserUsernameMax = 100;
+
+export const loginPlayerAccountResponseUserMobileRegExp = new RegExp('^\\d{10}$');
+export const loginPlayerAccountResponseUserGameIdMax = 100;
+
+export const loginPlayerAccountResponseUserUpiIdMax = 128;
+
+
+
+export const LoginPlayerAccountResponse = zod.object({
+  "token": zod.string(),
+  "expiresAt": zod.coerce.date(),
+  "user": zod.object({
+  "username": zod.string().min(1).max(loginPlayerAccountResponseUserUsernameMax),
+  "mobile": zod.string().regex(loginPlayerAccountResponseUserMobileRegExp),
+  "gameId": zod.string().min(1).max(loginPlayerAccountResponseUserGameIdMax),
+  "gameType": zod.enum(['BGMI', 'FreeFire']),
+  "upiId": zod.string().max(loginPlayerAccountResponseUserUpiIdMax).optional()
+})
+})
+
+
+/**
+ * @summary Move a legacy device account to server storage
+ */
+export const migratePlayerAccountBodyOneUsernameMax = 100;
+
+export const migratePlayerAccountBodyOneMobileRegExp = new RegExp('^\\d{10}$');
+export const migratePlayerAccountBodyOneGameIdMax = 100;
+
+export const migratePlayerAccountBodyOneUpiIdMax = 128;
+
+export const migratePlayerAccountBodyTwoPasswordMin = 6;
+export const migratePlayerAccountBodyTwoPasswordMax = 200;
+
+
+
+export const MigratePlayerAccountBody = zod.object({
+  "username": zod.string().min(1).max(migratePlayerAccountBodyOneUsernameMax),
+  "mobile": zod.string().regex(migratePlayerAccountBodyOneMobileRegExp),
+  "gameId": zod.string().min(1).max(migratePlayerAccountBodyOneGameIdMax),
+  "gameType": zod.enum(['BGMI', 'FreeFire']),
+  "upiId": zod.string().max(migratePlayerAccountBodyOneUpiIdMax).optional()
+}).and(zod.object({
+  "password": zod.string().min(migratePlayerAccountBodyTwoPasswordMin).max(migratePlayerAccountBodyTwoPasswordMax)
+}))
+
+export const migratePlayerAccountResponseUserUsernameMax = 100;
+
+export const migratePlayerAccountResponseUserMobileRegExp = new RegExp('^\\d{10}$');
+export const migratePlayerAccountResponseUserGameIdMax = 100;
+
+export const migratePlayerAccountResponseUserUpiIdMax = 128;
+
+
+
+export const MigratePlayerAccountResponse = zod.object({
+  "token": zod.string(),
+  "expiresAt": zod.coerce.date(),
+  "user": zod.object({
+  "username": zod.string().min(1).max(migratePlayerAccountResponseUserUsernameMax),
+  "mobile": zod.string().regex(migratePlayerAccountResponseUserMobileRegExp),
+  "gameId": zod.string().min(1).max(migratePlayerAccountResponseUserGameIdMax),
+  "gameType": zod.enum(['BGMI', 'FreeFire']),
+  "upiId": zod.string().max(migratePlayerAccountResponseUserUpiIdMax).optional()
+})
+})
+
+
+/**
+ * @summary Read the signed-in player's current profile
+ */
+export const getPlayerProfileResponseUsernameMax = 100;
+
+export const getPlayerProfileResponseMobileRegExp = new RegExp('^\\d{10}$');
+export const getPlayerProfileResponseGameIdMax = 100;
+
+export const getPlayerProfileResponseUpiIdMax = 128;
+
+
+
+export const GetPlayerProfileResponse = zod.object({
+  "username": zod.string().min(1).max(getPlayerProfileResponseUsernameMax),
+  "mobile": zod.string().regex(getPlayerProfileResponseMobileRegExp),
+  "gameId": zod.string().min(1).max(getPlayerProfileResponseGameIdMax),
+  "gameType": zod.enum(['BGMI', 'FreeFire']),
+  "upiId": zod.string().max(getPlayerProfileResponseUpiIdMax).optional()
+})
+
+
+/**
+ * @summary Update the signed-in player's profile
+ */
+export const updatePlayerProfileBodyUpiIdMax = 128;
+
+
+
+export const UpdatePlayerProfileBody = zod.object({
+  "upiId": zod.string().max(updatePlayerProfileBodyUpiIdMax).optional()
+})
+
+export const updatePlayerProfileResponseUsernameMax = 100;
+
+export const updatePlayerProfileResponseMobileRegExp = new RegExp('^\\d{10}$');
+export const updatePlayerProfileResponseGameIdMax = 100;
+
+export const updatePlayerProfileResponseUpiIdMax = 128;
+
+
+
+export const UpdatePlayerProfileResponse = zod.object({
+  "username": zod.string().min(1).max(updatePlayerProfileResponseUsernameMax),
+  "mobile": zod.string().regex(updatePlayerProfileResponseMobileRegExp),
+  "gameId": zod.string().min(1).max(updatePlayerProfileResponseGameIdMax),
+  "gameType": zod.enum(['BGMI', 'FreeFire']),
+  "upiId": zod.string().max(updatePlayerProfileResponseUpiIdMax).optional()
+})
+
+
+/**
+ * @summary Reset a player's password
+ */
+export const resetUserPasswordBodyUsernameMax = 100;
+
+export const resetUserPasswordBodyNewPasswordMin = 6;
+export const resetUserPasswordBodyNewPasswordMax = 200;
+
+
+
+export const ResetUserPasswordBody = zod.object({
+  "username": zod.string().min(1).max(resetUserPasswordBodyUsernameMax),
+  "newPassword": zod.string().min(resetUserPasswordBodyNewPasswordMin).max(resetUserPasswordBodyNewPasswordMax)
+})
+
+export const ResetUserPasswordResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
+/**
  * @summary List tournaments
  */
 export const listTournamentsResponseTournamentsItemIdMax = 120;

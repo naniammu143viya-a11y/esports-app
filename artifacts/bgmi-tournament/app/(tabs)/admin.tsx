@@ -23,6 +23,7 @@ import { useWallet, ADMIN_UPI_KEY } from "@/context/WalletContext";
 import { GameBadge } from "@/components/GameBadge";
 import { RegisteredPlayersModal } from "@/components/RegisteredPlayersModal";
 import { PaymentReviewPanel } from "@/components/PaymentReviewPanel";
+import { AdminUserPasswordReset } from "@/components/AdminUserPasswordReset";
 import type {
   GameType,
   TournamentStatus,
@@ -1169,6 +1170,7 @@ export default function AdminScreen() {
             <>
               {/* UPI Settings */}
               <AdminUpiCard />
+              <AdminUserPasswordReset />
               <PaymentReviewPanel />
 
               <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>

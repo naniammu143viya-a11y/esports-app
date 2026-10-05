@@ -1,5 +1,6 @@
 export * from "./generated/api";
 export type {
+  AdminPasswordResetRequest,
   AdminSession,
   AdminSessionRequest,
   FreeTournamentJoin,
@@ -8,7 +9,14 @@ export type {
   HealthStatus,
   ImportTournaments200,
   ListTournaments200,
+  PlayerAccountRegistration,
+  PlayerCredentials,
+  PlayerProfile,
+  PlayerProfileGameType,
+  PlayerProfilePatch,
+  PlayerSession,
   RankPrizes,
+  ResetUserPassword200,
   Tournament,
   TournamentGame,
   TournamentPatch,

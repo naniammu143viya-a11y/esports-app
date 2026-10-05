@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: tournaments
     description: Tournament reads and player joins
+  - name: auth
+    description: Player account registration and authentication
   - name: admin
     description: Protected tournament administration
 paths:
@@ -28,6 +30,143 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/register:
+    post:
+      operationId: registerPlayerAccount
+      tags: [auth]
+      summary: Create a player account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerAccountRegistration"
+      responses:
+        "201":
+          description: Player account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerSession"
+        "400":
+          description: Invalid account details
+        "409":
+          description: Username already exists
+  /auth/login:
+    post:
+      operationId: loginPlayerAccount
+      tags: [auth]
+      summary: Sign in to a player account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerCredentials"
+      responses:
+        "200":
+          description: Player session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerSession"
+        "400":
+          description: Invalid login request
+        "401":
+          description: Incorrect username or password
+        "404":
+          description: Account has not been migrated to the server
+  /auth/migrate:
+    post:
+      operationId: migratePlayerAccount
+      tags: [auth]
+      summary: Move a legacy device account to server storage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerAccountRegistration"
+      responses:
+        "200":
+          description: Migrated player session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerSession"
+        "400":
+          description: Invalid legacy account details
+        "409":
+          description: Username already exists on the server
+  /auth/profile:
+    get:
+      operationId: getPlayerProfile
+      tags: [auth]
+      summary: Read the signed-in player's current profile
+      security:
+        - PlayerBearer: []
+      responses:
+        "200":
+          description: Current player profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerProfile"
+        "401":
+          description: Player authentication required or session revoked
+    patch:
+      operationId: updatePlayerProfile
+      tags: [auth]
+      summary: Update the signed-in player's profile
+      security:
+        - PlayerBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerProfilePatch"
+      responses:
+        "200":
+          description: Updated player profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerProfile"
+        "400":
+          description: Invalid profile update
+        "401":
+          description: Player authentication required
+  /admin/reset-user-password:
+    post:
+      operationId: resetUserPassword
+      tags: [admin]
+      summary: Reset a player's password
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPasswordResetRequest"
+      responses:
+        "200":
+          description: Player password updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+        "400":
+          description: Invalid password reset request
+        "401":
+          description: Admin authentication required
+        "404":
+          description: Player account not found
   /tournaments:
     get:
       operationId: listTournaments
@@ -222,7 +361,87 @@ components:
       type: http
       scheme: bearer
       bearerFormat: HMAC token
+    PlayerBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: HMAC token
   schemas:
+    PlayerProfile:
+      type: object
+      required: [username, mobile, gameId, gameType]
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 100
+        mobile:
+          type: string
+          pattern: "^\\d{10}$"
+        gameId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        gameType:
+          type: string
+          enum: [BGMI, FreeFire]
+        upiId:
+          type: string
+          maxLength: 128
+    PlayerAccountRegistration:
+      allOf:
+        - $ref: "#/components/schemas/PlayerProfile"
+        - type: object
+          required: [password]
+          properties:
+            password:
+              type: string
+              minLength: 6
+              maxLength: 200
+    PlayerCredentials:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 100
+        password:
+          type: string
+          minLength: 1
+          maxLength: 200
+    PlayerSession:
+      type: object
+      required: [token, expiresAt, user]
+      properties:
+        token:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        user:
+          $ref: "#/components/schemas/PlayerProfile"
+    PlayerProfilePatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        upiId:
+          type: string
+          maxLength: 128
+    AdminPasswordResetRequest:
+      type: object
+      additionalProperties: false
+      required: [username, newPassword]
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 100
+        newPassword:
+          type: string
+          minLength: 6
+          maxLength: 200
     HealthStatus:
       type: object
       properties:

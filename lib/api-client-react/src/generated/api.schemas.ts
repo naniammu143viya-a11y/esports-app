@@ -5,6 +5,77 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type PlayerProfileGameType = typeof PlayerProfileGameType[keyof typeof PlayerProfileGameType];
+
+
+export const PlayerProfileGameType = {
+  BGMI: 'BGMI',
+  FreeFire: 'FreeFire',
+} as const;
+
+export interface PlayerProfile {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  username: string;
+  /** @pattern ^\d{10}$ */
+  mobile: string;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  gameId: string;
+  gameType: PlayerProfileGameType;
+  /** @maxLength 128 */
+  upiId?: string;
+}
+
+export type PlayerAccountRegistration = PlayerProfile & {
+  /**
+     * @minLength 6
+     * @maxLength 200
+     */
+  password: string;
+};
+
+export interface PlayerCredentials {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  username: string;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  password: string;
+}
+
+export interface PlayerSession {
+  token: string;
+  expiresAt: string;
+  user: PlayerProfile;
+}
+
+export interface PlayerProfilePatch {
+  /** @maxLength 128 */
+  upiId?: string;
+}
+
+export interface AdminPasswordResetRequest {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  username: string;
+  /**
+     * @minLength 6
+     * @maxLength 200
+     */
+  newPassword: string;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -166,6 +237,10 @@ export interface AdminSession {
   token: string;
   expiresAt: string;
 }
+
+export type ResetUserPassword200 = {
+  success: boolean;
+};
 
 export type ListTournaments200 = {
   tournaments: Tournament[];

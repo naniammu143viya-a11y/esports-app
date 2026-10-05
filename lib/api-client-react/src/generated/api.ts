@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AdminPasswordResetRequest,
   AdminSession,
   AdminSessionRequest,
   FreeTournamentJoin,
@@ -29,6 +30,12 @@ import type {
   ImportTournaments200,
   ImportTournamentsBody,
   ListTournaments200,
+  PlayerAccountRegistration,
+  PlayerCredentials,
+  PlayerProfile,
+  PlayerProfilePatch,
+  PlayerSession,
+  ResetUserPassword200,
   Tournament,
   TournamentPatch,
   TournamentResponse,
@@ -139,6 +146,438 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
+
+export const getRegisterPlayerAccountUrl = () => {
+
+
+
+
+  return `/api/auth/register`
+}
+
+/**
+ * @summary Create a player account
+ */
+export const registerPlayerAccount = async (playerAccountRegistration: PlayerAccountRegistration, options?: RequestInit): Promise<PlayerSession> => {
+
+  return customFetch<PlayerSession>(getRegisterPlayerAccountUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(playerAccountRegistration)
+  }
+);}
+
+
+
+
+
+export const getRegisterPlayerAccountMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerPlayerAccount>>, TError,{data: BodyType<PlayerAccountRegistration>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registerPlayerAccount>>, TError,{data: BodyType<PlayerAccountRegistration>}, TContext> => {
+
+const mutationKey = ['registerPlayerAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerPlayerAccount>>, {data: BodyType<PlayerAccountRegistration>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  registerPlayerAccount(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterPlayerAccountMutationResult = NonNullable<Awaited<ReturnType<typeof registerPlayerAccount>>>
+    export type RegisterPlayerAccountMutationBody = BodyType<PlayerAccountRegistration>
+    export type RegisterPlayerAccountMutationError = ErrorType<void>
+
+    /**
+ * @summary Create a player account
+ */
+export const useRegisterPlayerAccount = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerPlayerAccount>>, TError,{data: BodyType<PlayerAccountRegistration>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof registerPlayerAccount>>,
+        TError,
+        {data: BodyType<PlayerAccountRegistration>},
+        TContext
+      > => {
+      return useMutation(getRegisterPlayerAccountMutationOptions(options));
+    }
+
+export const getLoginPlayerAccountUrl = () => {
+
+
+
+
+  return `/api/auth/login`
+}
+
+/**
+ * @summary Sign in to a player account
+ */
+export const loginPlayerAccount = async (playerCredentials: PlayerCredentials, options?: RequestInit): Promise<PlayerSession> => {
+
+  return customFetch<PlayerSession>(getLoginPlayerAccountUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(playerCredentials)
+  }
+);}
+
+
+
+
+
+export const getLoginPlayerAccountMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof loginPlayerAccount>>, TError,{data: BodyType<PlayerCredentials>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof loginPlayerAccount>>, TError,{data: BodyType<PlayerCredentials>}, TContext> => {
+
+const mutationKey = ['loginPlayerAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof loginPlayerAccount>>, {data: BodyType<PlayerCredentials>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  loginPlayerAccount(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LoginPlayerAccountMutationResult = NonNullable<Awaited<ReturnType<typeof loginPlayerAccount>>>
+    export type LoginPlayerAccountMutationBody = BodyType<PlayerCredentials>
+    export type LoginPlayerAccountMutationError = ErrorType<void>
+
+    /**
+ * @summary Sign in to a player account
+ */
+export const useLoginPlayerAccount = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof loginPlayerAccount>>, TError,{data: BodyType<PlayerCredentials>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof loginPlayerAccount>>,
+        TError,
+        {data: BodyType<PlayerCredentials>},
+        TContext
+      > => {
+      return useMutation(getLoginPlayerAccountMutationOptions(options));
+    }
+
+export const getMigratePlayerAccountUrl = () => {
+
+
+
+
+  return `/api/auth/migrate`
+}
+
+/**
+ * @summary Move a legacy device account to server storage
+ */
+export const migratePlayerAccount = async (playerAccountRegistration: PlayerAccountRegistration, options?: RequestInit): Promise<PlayerSession> => {
+
+  return customFetch<PlayerSession>(getMigratePlayerAccountUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(playerAccountRegistration)
+  }
+);}
+
+
+
+
+
+export const getMigratePlayerAccountMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof migratePlayerAccount>>, TError,{data: BodyType<PlayerAccountRegistration>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof migratePlayerAccount>>, TError,{data: BodyType<PlayerAccountRegistration>}, TContext> => {
+
+const mutationKey = ['migratePlayerAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof migratePlayerAccount>>, {data: BodyType<PlayerAccountRegistration>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  migratePlayerAccount(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MigratePlayerAccountMutationResult = NonNullable<Awaited<ReturnType<typeof migratePlayerAccount>>>
+    export type MigratePlayerAccountMutationBody = BodyType<PlayerAccountRegistration>
+    export type MigratePlayerAccountMutationError = ErrorType<void>
+
+    /**
+ * @summary Move a legacy device account to server storage
+ */
+export const useMigratePlayerAccount = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof migratePlayerAccount>>, TError,{data: BodyType<PlayerAccountRegistration>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof migratePlayerAccount>>,
+        TError,
+        {data: BodyType<PlayerAccountRegistration>},
+        TContext
+      > => {
+      return useMutation(getMigratePlayerAccountMutationOptions(options));
+    }
+
+export const getGetPlayerProfileUrl = () => {
+
+
+
+
+  return `/api/auth/profile`
+}
+
+/**
+ * @summary Read the signed-in player's current profile
+ */
+export const getPlayerProfile = async ( options?: RequestInit): Promise<PlayerProfile> => {
+
+  return customFetch<PlayerProfile>(getGetPlayerProfileUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPlayerProfileQueryKey = () => {
+    return [
+    `/api/auth/profile`
+    ] as const;
+    }
+
+
+export const getGetPlayerProfileQueryOptions = <TData = Awaited<ReturnType<typeof getPlayerProfile>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlayerProfile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPlayerProfileQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPlayerProfile>>> = ({ signal }) => getPlayerProfile({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPlayerProfile>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPlayerProfileQueryResult = NonNullable<Awaited<ReturnType<typeof getPlayerProfile>>>
+export type GetPlayerProfileQueryError = ErrorType<void>
+
+
+/**
+ * @summary Read the signed-in player's current profile
+ */
+
+export function useGetPlayerProfile<TData = Awaited<ReturnType<typeof getPlayerProfile>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlayerProfile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPlayerProfileQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdatePlayerProfileUrl = () => {
+
+
+
+
+  return `/api/auth/profile`
+}
+
+/**
+ * @summary Update the signed-in player's profile
+ */
+export const updatePlayerProfile = async (playerProfilePatch: PlayerProfilePatch, options?: RequestInit): Promise<PlayerProfile> => {
+
+  return customFetch<PlayerProfile>(getUpdatePlayerProfileUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(playerProfilePatch)
+  }
+);}
+
+
+
+
+
+export const getUpdatePlayerProfileMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlayerProfile>>, TError,{data: BodyType<PlayerProfilePatch>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePlayerProfile>>, TError,{data: BodyType<PlayerProfilePatch>}, TContext> => {
+
+const mutationKey = ['updatePlayerProfile'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePlayerProfile>>, {data: BodyType<PlayerProfilePatch>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updatePlayerProfile(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePlayerProfileMutationResult = NonNullable<Awaited<ReturnType<typeof updatePlayerProfile>>>
+    export type UpdatePlayerProfileMutationBody = BodyType<PlayerProfilePatch>
+    export type UpdatePlayerProfileMutationError = ErrorType<void>
+
+    /**
+ * @summary Update the signed-in player's profile
+ */
+export const useUpdatePlayerProfile = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePlayerProfile>>, TError,{data: BodyType<PlayerProfilePatch>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePlayerProfile>>,
+        TError,
+        {data: BodyType<PlayerProfilePatch>},
+        TContext
+      > => {
+      return useMutation(getUpdatePlayerProfileMutationOptions(options));
+    }
+
+export const getResetUserPasswordUrl = () => {
+
+
+
+
+  return `/api/admin/reset-user-password`
+}
+
+/**
+ * @summary Reset a player's password
+ */
+export const resetUserPassword = async (adminPasswordResetRequest: AdminPasswordResetRequest, options?: RequestInit): Promise<ResetUserPassword200> => {
+
+  return customFetch<ResetUserPassword200>(getResetUserPasswordUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(adminPasswordResetRequest)
+  }
+);}
+
+
+
+
+
+export const getResetUserPasswordMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetUserPassword>>, TError,{data: BodyType<AdminPasswordResetRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resetUserPassword>>, TError,{data: BodyType<AdminPasswordResetRequest>}, TContext> => {
+
+const mutationKey = ['resetUserPassword'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetUserPassword>>, {data: BodyType<AdminPasswordResetRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  resetUserPassword(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResetUserPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof resetUserPassword>>>
+    export type ResetUserPasswordMutationBody = BodyType<AdminPasswordResetRequest>
+    export type ResetUserPasswordMutationError = ErrorType<void>
+
+    /**
+ * @summary Reset a player's password
+ */
+export const useResetUserPassword = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetUserPassword>>, TError,{data: BodyType<AdminPasswordResetRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resetUserPassword>>,
+        TError,
+        {data: BodyType<AdminPasswordResetRequest>},
+        TContext
+      > => {
+      return useMutation(getResetUserPasswordMutationOptions(options));
+    }
 
 export const getListTournamentsUrl = () => {
 

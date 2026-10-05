@@ -262,6 +262,9 @@ async function downloadManifest(platform) {
       headers: {
       'Origin': 'https://workspace.replit.dev',
       'Referer': 'https://workspace.replit.dev',
+      'X-Requested-With': 'XMLHttpRequest',
+      'Origin': 'https://workspace.replit.dev',
+      'Referer': 'https://workspace.replit.dev',
       'X-Requested-With': 'XMLHttpRequest', 'expo-platform': platform },
       signal: controller.signal,
     });

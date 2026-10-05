@@ -239,6 +239,9 @@ export const joinFreeTournament = async (id: string,
       'Origin': 'https://workspace.replit.dev',
       'Referer': 'https://workspace.replit.dev',
       'X-Requested-With': 'XMLHttpRequest',
+      'Origin': 'https://workspace.replit.dev',
+      'Referer': 'https://workspace.replit.dev',
+      'X-Requested-With': 'XMLHttpRequest',
       'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(freeTournamentJoinRequest)
   }
@@ -403,6 +406,9 @@ export const createAdminSession = async (adminSessionRequest: AdminSessionReques
       'Origin': 'https://workspace.replit.dev',
       'Referer': 'https://workspace.replit.dev',
       'X-Requested-With': 'XMLHttpRequest',
+      'Origin': 'https://workspace.replit.dev',
+      'Referer': 'https://workspace.replit.dev',
+      'X-Requested-With': 'XMLHttpRequest',
       'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(adminSessionRequest)
   }
@@ -475,6 +481,9 @@ export const importTournaments = async (importTournamentsBody: ImportTournaments
     ...options,
     method: 'POST',
     headers: {
+      'Origin': 'https://workspace.replit.dev',
+      'Referer': 'https://workspace.replit.dev',
+      'X-Requested-With': 'XMLHttpRequest',
       'Origin': 'https://workspace.replit.dev',
       'Referer': 'https://workspace.replit.dev',
       'X-Requested-With': 'XMLHttpRequest',
@@ -553,6 +562,9 @@ export const createTournament = async (tournament: Tournament, options?: Request
       'Origin': 'https://workspace.replit.dev',
       'Referer': 'https://workspace.replit.dev',
       'X-Requested-With': 'XMLHttpRequest',
+      'Origin': 'https://workspace.replit.dev',
+      'Referer': 'https://workspace.replit.dev',
+      'X-Requested-With': 'XMLHttpRequest',
       'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(tournament)
   }
@@ -626,6 +638,9 @@ export const updateTournament = async (id: string,
     ...options,
     method: 'PATCH',
     headers: {
+      'Origin': 'https://workspace.replit.dev',
+      'Referer': 'https://workspace.replit.dev',
+      'X-Requested-With': 'XMLHttpRequest',
       'Origin': 'https://workspace.replit.dev',
       'Referer': 'https://workspace.replit.dev',
       'X-Requested-With': 'XMLHttpRequest',

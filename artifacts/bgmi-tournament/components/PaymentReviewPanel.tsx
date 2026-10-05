@@ -33,6 +33,9 @@ export function PaymentReviewPanel() {
       const response = await fetch(url, { headers: {
       'Origin': 'https://workspace.replit.dev',
       'Referer': 'https://workspace.replit.dev',
+      'X-Requested-With': 'XMLHttpRequest',
+      'Origin': 'https://workspace.replit.dev',
+      'Referer': 'https://workspace.replit.dev',
       'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' } });
       const payload = await response.json() as { payments?: PaymentAttempt[]; error?: string };
       if (!response.ok) throw new Error(payload.error ?? 'Unable to load payment status');
@@ -57,6 +60,9 @@ export function PaymentReviewPanel() {
       const response = await fetch(paymentsUrl(`/${id}/review`), {
         method: 'POST',
         headers: {
+      'Origin': 'https://workspace.replit.dev',
+      'Referer': 'https://workspace.replit.dev',
+      'X-Requested-With': 'XMLHttpRequest',
       'Origin': 'https://workspace.replit.dev',
       'Referer': 'https://workspace.replit.dev',
       'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' },

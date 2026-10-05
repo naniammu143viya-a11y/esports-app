@@ -89,12 +89,21 @@ export default function LobbyScreen() {
   async function handleJoin(tournament: Tournament) {
     if (joinedIds.includes(tournament.id)) return;
     if (tournament.entryFee === 0) {
-      await joinFreeWithPlayer(tournament.id, {
-        username: user?.username ?? "Unknown",
-        mobile: user?.mobile ?? "",
-        gameId: user?.gameId ?? "",
-        gameType: user?.gameType ?? tournament.game,
-      });
+      try {
+        await joinFreeWithPlayer(tournament.id, {
+          username: user?.username ?? "Unknown",
+          mobile: user?.mobile ?? "",
+          gameId: user?.gameId ?? "",
+          gameType: user?.gameType ?? tournament.game,
+        });
+      } catch (error) {
+        Alert.alert(
+          "Join failed",
+          error instanceof Error
+            ? error.message
+            : "Unable to register for this tournament.",
+        );
+      }
     } else {
       setPayingTournament(tournament);
     }

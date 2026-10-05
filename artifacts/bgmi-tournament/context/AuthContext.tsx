@@ -1,13 +1,32 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { GameType } from '@/context/TournamentContext';
+import { createAdminSession, setAuthTokenGetter } from '@workspace/api-client-react';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const ADMIN_USERNAME = 'admin';
-const ADMIN_PASSWORD = 'Admin@9988';
 
 const SESSION_KEY = '@bgmi_session';
 const ACCOUNTS_KEY = '@bgmi_accounts';
+
+setAuthTokenGetter(async () => {
+  try {
+    const raw = await AsyncStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const session = JSON.parse(raw) as User;
+    if (
+      !session.isAdmin ||
+      !session.adminToken ||
+      !session.adminTokenExpiresAt ||
+      Date.parse(session.adminTokenExpiresAt) <= Date.now()
+    ) {
+      return null;
+    }
+    return session.adminToken;
+  } catch {
+    return null;
+  }
+});
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface User {
@@ -17,6 +36,8 @@ export interface User {
   gameType: GameType;
   isAdmin: boolean;
   upiId?: string;
+  adminToken?: string;
+  adminTokenExpiresAt?: string;
 }
 
 interface Account {
@@ -73,7 +94,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(SESSION_KEY);
-        if (raw) setUser(JSON.parse(raw));
+        if (raw) {
+          const session = JSON.parse(raw) as User;
+          if (
+            session.isAdmin &&
+            (!session.adminToken ||
+              !session.adminTokenExpiresAt ||
+              Date.parse(session.adminTokenExpiresAt) <= Date.now())
+          ) {
+            await AsyncStorage.removeItem(SESSION_KEY);
+          } else {
+            setUser(session);
+          }
+        }
       } catch {
         // ignore
       } finally {
@@ -91,13 +124,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const uname = username.trim().toLowerCase();
 
     if (uname === ADMIN_USERNAME.toLowerCase()) {
-      if (password !== ADMIN_PASSWORD) throw new Error('Incorrect admin password.');
+      const adminSession = await createAdminSession({ password });
       await persistSession({
         username: ADMIN_USERNAME,
         mobile: '',
         gameId: '',
         gameType: 'BGMI',
         isAdmin: true,
+        adminToken: adminSession.token,
+        adminTokenExpiresAt: adminSession.expiresAt,
       });
       return;
     }

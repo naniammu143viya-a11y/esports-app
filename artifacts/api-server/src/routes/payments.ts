@@ -5,7 +5,9 @@ import {
   paymentTransactions,
   paymentVerificationAttempts,
   tournamentPaymentJoins,
+  tournamentRecords,
 } from "@workspace/db";
+import { createTournamentRoomAccessToken } from "../lib/tournamentRoomAccess";
 
 const router: IRouter = Router();
 const UTR_PATTERN = /^\d{12}$/;
@@ -190,6 +192,27 @@ router.post("/payments/verify", async (req, res) => {
 
     const paymentId = `PAY${Date.now().toString(36).toUpperCase()}`;
     const result = await db.transaction(async (tx) => {
+      const [tournamentRow] = await tx
+        .select()
+        .from(tournamentRecords)
+        .where(eq(tournamentRecords.id, tournamentId))
+        .for("update")
+        .limit(1);
+      if (
+        tournamentRow &&
+        tournamentRow.data.status === "completed"
+      ) {
+        return {
+          error: "This tournament is no longer accepting entries",
+        } as const;
+      }
+      if (
+        tournamentRow &&
+        tournamentRow.data.registeredTeams >= tournamentRow.data.maxTeams
+      ) {
+        return { error: "This tournament is full" } as const;
+      }
+
       const [matched] = await tx
         .update(paymentTransactions)
         .set({
@@ -221,6 +244,18 @@ router.post("/payments/verify", async (req, res) => {
           amount,
         })
         .returning({ id: tournamentPaymentJoins.id });
+      if (tournamentRow) {
+        await tx
+          .update(tournamentRecords)
+          .set({
+            data: {
+              ...tournamentRow.data,
+              registeredTeams: tournamentRow.data.registeredTeams + 1,
+            },
+            updatedAt: new Date(),
+          })
+          .where(eq(tournamentRecords.id, tournamentId));
+      }
       await tx.insert(paymentVerificationAttempts).values({
         utr,
         amount,
@@ -236,7 +271,18 @@ router.post("/payments/verify", async (req, res) => {
       return { joinId: join.id };
     });
 
-    res.json({ ok: true, status: "APPROVED", paymentId, ...result });
+    if ("error" in result) {
+      res.status(409).json({ error: result.error });
+      return;
+    }
+
+    res.json({
+      ok: true,
+      status: "APPROVED",
+      paymentId,
+      ...result,
+      roomAccessToken: createTournamentRoomAccessToken(tournamentId, username),
+    });
   } catch (error) {
     req.log?.error?.(error, "payment verification failed");
     res.status(409).json({ error: "Invalid or Unverified UTR Number" });

@@ -1,6 +1,18 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/context/AuthContext";
+import {
+  createTournament as apiCreateTournament,
+  getTournamentRoom as apiGetTournamentRoom,
+  importTournaments as apiImportTournaments,
+  joinFreeTournament as apiJoinFreeTournament,
+  listTournaments as apiListTournaments,
+  updateTournament as apiUpdateTournament,
+} from "@workspace/api-client-react";
+import type {
+  Tournament as ApiTournament,
+  TournamentPatch,
+} from "@workspace/api-client-react";
 
 export type GameType = "BGMI" | "FreeFire";
 export type TournamentStatus = "live" | "upcoming" | "completed";
@@ -52,6 +64,7 @@ export interface Registration {
   gameId: string;
   gameType: GameType;
   paymentId: string;
+  roomAccessToken?: string;
   paidAt: string;
   amount: number; // 0 for free tournaments
 }
@@ -81,12 +94,23 @@ interface TournamentContextType {
     player: PlayerInfo,
   ) => Promise<string>;
   getRegistrations: (tournamentId: string) => Registration[];
-  updateRoomDetails: (id: string, roomId: string, password: string) => void;
+  updateRoomDetails: (
+    id: string,
+    roomId: string,
+    password: string,
+  ) => Promise<void>;
   /** Admin: change the max player slots for a tournament */
-  updateTournamentSlots: (id: string, newMax: number) => void;
+  updateTournamentSlots: (id: string, newMax: number) => Promise<void>;
   /** Admin: announce the winner and complete a tournament. */
-  completeTournament: (id: string, winnerNote: string) => void;
-  addTournament: (t: Omit<Tournament, "id" | "registeredTeams">) => void;
+  completeTournament: (id: string, winnerNote: string) => Promise<void>;
+  addTournament: (
+    t: Omit<Tournament, "id" | "registeredTeams">,
+  ) => Promise<void>;
+  getTournamentRoom: (
+    id: string,
+    roomAccessToken: string,
+  ) => Promise<{ roomId?: string; password?: string }>;
+  syncError: string | null;
 }
 
 const TournamentContext = createContext<TournamentContextType | null>(null);
@@ -160,16 +184,20 @@ export function TournamentProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [freeJoins, setFreeJoins] = useState<string[]>([]);
   const [payments, setPayments] = useState<Record<string, Payment>>({});
   const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const joinedIds: string[] = [...freeJoins, ...Object.keys(payments)];
 
   useEffect(() => {
-    (async () => {
+    if (authLoading) return;
+    let cancelled = false;
+
+    async function loadStoredState() {
       try {
         const [rawT, rawJ, rawP, rawR] = await Promise.all([
           AsyncStorage.getItem(TOURNAMENTS_KEY),
@@ -177,8 +205,7 @@ export function TournamentProvider({
           AsyncStorage.getItem(PAYMENTS_KEY),
           AsyncStorage.getItem(REGISTRATIONS_KEY),
         ]);
-        // Migrate old tournaments that lack prize fields or used "ongoing".
-        const rawRecords: any[] = rawT ? (JSON.parse(rawT) as any[]) : [];
+        const rawRecords: any[] = rawT ? JSON.parse(rawT) : [];
         const parsed: Tournament[] = rawRecords
           .filter((t) => !LEGACY_SEED_IDS.has(String(t.id)))
           .map((t) => ({
@@ -187,15 +214,7 @@ export function TournamentProvider({
             ...t,
             status: t.status === "ongoing" ? "live" : t.status,
           }));
-        const removedLegacySeeds = parsed.length !== rawRecords.length;
         const lifecycle = applyAutomaticLifecycle(parsed);
-        setTournaments(lifecycle.tournaments);
-        if (lifecycle.changed || removedLegacySeeds || !rawT) {
-          await AsyncStorage.setItem(
-            TOURNAMENTS_KEY,
-            JSON.stringify(lifecycle.tournaments),
-          );
-        }
         const storedFreeJoins: string[] = rawJ ? JSON.parse(rawJ) : [];
         const storedPayments: Record<string, Payment> = rawP
           ? JSON.parse(rawP)
@@ -203,81 +222,131 @@ export function TournamentProvider({
         const storedRegistrations: Registration[] = rawR
           ? JSON.parse(rawR)
           : [];
+
+        if (cancelled) return;
+        setTournaments(lifecycle.tournaments);
         setFreeJoins(storedFreeJoins);
         setPayments(storedPayments);
         setRegistrations(storedRegistrations);
 
-        if (user?.username && process.env.EXPO_PUBLIC_DOMAIN) {
-          const response = await fetch(
-            `https://${process.env.EXPO_PUBLIC_DOMAIN}/api/payments/joins?username=${encodeURIComponent(user.username)}`,
-          );
-          if (response.ok) {
-            const payload = (await response.json()) as {
-              joins?: Array<{
-                tournamentId: string;
-                username: string;
-                mobile: string;
-                gameId: string;
-                gameType: GameType;
-                paymentId: string;
-                utr: string;
-                joinedAt: string;
-                amount: number;
-              }>;
-            };
-            const serverPayments: Record<string, Payment> = {};
-            const serverRegistrations: Registration[] = [];
-            for (const join of payload.joins ?? []) {
-              serverPayments[join.tournamentId] = {
-                tournamentId: join.tournamentId,
-                status: "PAID",
-                paymentId: join.paymentId,
-                utr: join.utr,
-                paidAt: join.joinedAt,
-                amount: join.amount,
-              };
-              serverRegistrations.push({
-                tournamentId: join.tournamentId,
-                username: join.username,
-                mobile: join.mobile,
-                gameId: join.gameId,
-                gameType: join.gameType,
-                paymentId: join.paymentId,
-                paidAt: join.joinedAt,
-                amount: join.amount,
+        try {
+          if (user?.isAdmin) {
+            for (let offset = 0; offset < lifecycle.tournaments.length; offset += 500) {
+              await apiImportTournaments({
+                tournaments: lifecycle.tournaments
+                  .slice(offset, offset + 500)
+                  .map((tournament) => tournament as ApiTournament),
               });
             }
-            // Keep the local cache for joins that are not returned by the API
-            // (including free matches), while letting server records take priority.
-            const mergedPayments = { ...storedPayments, ...serverPayments };
-            const serverPaymentIds = new Set(
-              serverRegistrations.map((registration) => registration.paymentId),
+          }
+
+          const { tournaments: remoteTournaments } = await apiListTournaments();
+          if (cancelled) return;
+          const localById = new Map(
+            lifecycle.tournaments.map((tournament) => [tournament.id, tournament]),
+          );
+          const remoteIds = new Set(remoteTournaments.map((tournament) => tournament.id));
+          const merged = remoteTournaments.map((remote) => {
+            const local = localById.get(remote.id);
+            const combined = { ...local, ...remote } as Tournament;
+            if (!user?.isAdmin) {
+              combined.roomId = undefined;
+              combined.password = undefined;
+            }
+            return combined;
+          });
+          merged.push(
+            ...lifecycle.tournaments.filter(
+              (tournament) => !remoteIds.has(tournament.id),
+            ),
+          );
+
+          setTournaments(merged);
+          setSyncError(null);
+          await AsyncStorage.setItem(TOURNAMENTS_KEY, JSON.stringify(merged));
+        } catch (error) {
+          if (!cancelled) {
+            setSyncError(
+              error instanceof Error ? error.message : "Tournament sync failed.",
             );
-            const mergedRegistrations = [
-              ...storedRegistrations.filter(
-                (registration) => !serverPaymentIds.has(registration.paymentId),
-              ),
-              ...serverRegistrations,
-            ];
-            setPayments(mergedPayments);
-            setRegistrations(mergedRegistrations);
-            await Promise.all([
-              AsyncStorage.setItem(
-                PAYMENTS_KEY,
-                JSON.stringify(mergedPayments),
-              ),
-              AsyncStorage.setItem(
-                REGISTRATIONS_KEY,
-                JSON.stringify(mergedRegistrations),
-              ),
-            ]);
           }
         }
-      } catch {
-        setTournaments([]);
+
+        const serverResponse = user?.username
+          ? await fetch(
+              `https://${process.env.EXPO_PUBLIC_DOMAIN}/api/payments/joins?username=${encodeURIComponent(user.username)}`,
+            )
+          : null;
+        if (serverResponse?.ok && !cancelled) {
+          const payload = (await serverResponse.json()) as {
+            joins?: Array<{
+              tournamentId: string;
+              username: string;
+              mobile: string;
+              gameId: string;
+              gameType: GameType;
+              paymentId: string;
+              utr: string;
+              joinedAt: string;
+              amount: number;
+            }>;
+          };
+          const serverPayments: Record<string, Payment> = {};
+          const serverRegistrations: Registration[] = [];
+          for (const join of payload.joins ?? []) {
+            serverPayments[join.tournamentId] = {
+              tournamentId: join.tournamentId,
+              status: "PAID",
+              paymentId: join.paymentId,
+              utr: join.utr,
+              paidAt: join.joinedAt,
+              amount: join.amount,
+            };
+            serverRegistrations.push({
+              tournamentId: join.tournamentId,
+              username: join.username,
+              mobile: join.mobile,
+              gameId: join.gameId,
+              gameType: join.gameType,
+              paymentId: join.paymentId,
+              paidAt: join.joinedAt,
+              amount: join.amount,
+            });
+          }
+          const mergedPayments = { ...storedPayments, ...serverPayments };
+          const serverPaymentIds = new Set(
+            serverRegistrations.map((registration) => registration.paymentId),
+          );
+          const mergedRegistrations = [
+            ...storedRegistrations.filter(
+              (registration) => !serverPaymentIds.has(registration.paymentId),
+            ),
+            ...serverRegistrations,
+          ];
+          setPayments(mergedPayments);
+          setRegistrations(mergedRegistrations);
+          await Promise.all([
+            AsyncStorage.setItem(PAYMENTS_KEY, JSON.stringify(mergedPayments)),
+            AsyncStorage.setItem(
+              REGISTRATIONS_KEY,
+              JSON.stringify(mergedRegistrations),
+            ),
+          ]);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setSyncError(
+            error instanceof Error ? error.message : "Unable to load saved data.",
+          );
+        }
       }
-    })();
-  }, [user?.username]);
+    }
+
+    void loadStoredState();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user?.username, user?.isAdmin]);
 
   // Keep a backgrounded app current when it remains open across a scheduled start.
   useEffect(() => {
@@ -317,13 +386,20 @@ export function TournamentProvider({
     )
       return;
 
-    const paymentId = `FREE${Date.now().toString(36).toUpperCase()}`;
-    const now = new Date().toISOString();
+    const serverJoin = await apiJoinFreeTournament(id, {
+      username: player.username,
+      mobile: player.mobile,
+      gameId: player.gameId,
+      gameType: player.gameType,
+    });
+    const paymentId = serverJoin.paymentId;
+    const now = serverJoin.joinedAt;
 
     const payment: Payment = {
       tournamentId: id,
       status: "FREE",
       paymentId,
+      roomAccessToken: serverJoin.roomAccessToken,
       paidAt: now,
       amount: 0,
     };
@@ -346,7 +422,13 @@ export function TournamentProvider({
       : [...freeJoins, id];
     const updated = tournaments.map((t) =>
       t.id === id
-        ? { ...t, registeredTeams: Math.min(t.registeredTeams + 1, t.maxTeams) }
+        ? {
+            ...t,
+            registeredTeams: Math.min(
+              serverJoin.registeredTeams,
+              t.maxTeams,
+            ),
+          }
         : t,
     );
 
@@ -405,9 +487,10 @@ export function TournamentProvider({
     });
     const payload = (await response.json()) as {
       paymentId?: string;
+      roomAccessToken?: string;
       error?: string;
     };
-    if (!response.ok || !payload.paymentId) {
+    if (!response.ok || !payload.paymentId || !payload.roomAccessToken) {
       throw new Error(payload.error ?? "Invalid or Unverified UTR Number");
     }
 
@@ -427,6 +510,7 @@ export function TournamentProvider({
       gameId: player.gameId,
       gameType: player.gameType,
       paymentId: payload.paymentId,
+      roomAccessToken: payload.roomAccessToken,
       paidAt: now,
       amount,
     };
@@ -451,45 +535,68 @@ export function TournamentProvider({
     return registrations.filter((r) => r.tournamentId === tournamentId);
   }
 
-  function updateRoomDetails(id: string, roomId: string, password: string) {
-    persistTournaments(
-      tournaments.map((t) => (t.id === id ? { ...t, roomId, password } : t)),
-    );
-  }
-
-  // ─── Admin: update player slot limit ─────────────────────────────────────
-  function updateTournamentSlots(id: string, newMax: number) {
-    const clamped = Math.max(newMax, 1);
-    persistTournaments(
-      tournaments.map((t) => (t.id === id ? { ...t, maxTeams: clamped } : t)),
-    );
-  }
-
-  function completeTournament(id: string, winnerNote: string) {
-    const note = winnerNote.trim();
-    if (!note) return;
-    const completedAt = new Date().toISOString();
-    persistTournaments(
-      tournaments.map((tournament) =>
-        tournament.id === id
-          ? {
-              ...tournament,
-              status: "completed",
-              winnerNote: note,
-              completedAt,
-            }
-          : tournament,
+  async function updateAdminTournament(
+    id: string,
+    patch: TournamentPatch,
+  ): Promise<void> {
+    const { tournament } = await apiUpdateTournament(id, patch);
+    await persistTournaments(
+      tournaments.map((item) =>
+        item.id === id ? (tournament as Tournament) : item,
       ),
     );
   }
 
-  function addTournament(t: Omit<Tournament, "id" | "registeredTeams">) {
+  async function updateRoomDetails(
+    id: string,
+    roomId: string,
+    password: string,
+  ): Promise<void> {
+    await updateAdminTournament(id, { roomId, password });
+  }
+
+  async function updateTournamentSlots(
+    id: string,
+    newMax: number,
+  ): Promise<void> {
+    const current = tournaments.find((tournament) => tournament.id === id);
+    if (!current) throw new Error("Tournament not found.");
+    await updateAdminTournament(id, {
+      maxTeams: Math.max(newMax, current.registeredTeams, 1),
+    });
+  }
+
+  async function completeTournament(
+    id: string,
+    winnerNote: string,
+  ): Promise<void> {
+    const note = winnerNote.trim();
+    if (!note) return;
+    const completedAt = new Date().toISOString();
+    await updateAdminTournament(id, {
+      status: "completed",
+      winnerNote: note,
+      completedAt,
+    });
+  }
+
+  async function addTournament(
+    t: Omit<Tournament, "id" | "registeredTeams">,
+  ): Promise<void> {
     const newT: Tournament = {
       ...t,
       id: Date.now().toString() + Math.random().toString(36).substring(2, 7),
       registeredTeams: 0,
     };
-    persistTournaments([newT, ...tournaments]);
+    const { tournament } = await apiCreateTournament(newT as ApiTournament);
+    await persistTournaments([tournament as Tournament, ...tournaments]);
+  }
+
+  async function getTournamentRoom(
+    id: string,
+    roomAccessToken: string,
+  ): Promise<{ roomId?: string; password?: string }> {
+    return apiGetTournamentRoom(id, { accessToken: roomAccessToken });
   }
 
   return (
@@ -507,6 +614,8 @@ export function TournamentProvider({
         updateTournamentSlots,
         completeTournament,
         addTournament,
+        getTournamentRoom,
+        syncError,
       }}
     >
       {children}

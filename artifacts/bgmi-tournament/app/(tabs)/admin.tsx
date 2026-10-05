@@ -162,8 +162,8 @@ function RoomEditorCard({
 }: {
   tournament: Tournament;
   registrationCount: number;
-  onSave: (id: string, roomId: string, pw: string) => void;
-  onComplete: (id: string, winnerNote: string) => void;
+  onSave: (id: string, roomId: string, pw: string) => Promise<void>;
+  onComplete: (id: string, winnerNote: string) => Promise<void>;
   onViewPlayers: (t: Tournament) => void;
 }) {
   const c = useColors();
@@ -174,24 +174,38 @@ function RoomEditorCard({
   const [slots, setSlots] = useState(tournament.maxTeams);
   const [winnerNote, setWinnerNote] = useState(tournament.winnerNote ?? "");
 
-  function handleSave() {
+  async function handleSave() {
     if (!roomId.trim()) {
       Alert.alert("Error", "Room ID cannot be empty");
       return;
     }
-    onSave(tournament.id, roomId.trim(), password.trim());
-    setSaved(true);
-    if (Platform.OS !== "web")
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setTimeout(() => setSaved(false), 2000);
+    try {
+      await onSave(tournament.id, roomId.trim(), password.trim());
+      setSaved(true);
+      if (Platform.OS !== "web")
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (error) {
+      Alert.alert(
+        "Save failed",
+        error instanceof Error ? error.message : "Unable to sync room details.",
+      );
+    }
   }
 
-  function changeSlots(delta: number) {
+  async function changeSlots(delta: number) {
     const next = Math.max(tournament.registeredTeams, slots + delta);
-    setSlots(next);
-    updateTournamentSlots(tournament.id, next);
-    if (Platform.OS !== "web")
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await updateTournamentSlots(tournament.id, next);
+      setSlots(next);
+      if (Platform.OS !== "web")
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (error) {
+      Alert.alert(
+        "Update failed",
+        error instanceof Error ? error.message : "Unable to sync player slots.",
+      );
+    }
   }
 
   function handleComplete() {
@@ -210,12 +224,21 @@ function RoomEditorCard({
         {
           text: "Mark Completed",
           style: "destructive",
-          onPress: () => {
-            onComplete(tournament.id, winnerNote);
-            if (Platform.OS !== "web")
-              Haptics.notificationAsync(
-                Haptics.NotificationFeedbackType.Success,
+          onPress: async () => {
+            try {
+              await onComplete(tournament.id, winnerNote);
+              if (Platform.OS !== "web")
+                Haptics.notificationAsync(
+                  Haptics.NotificationFeedbackType.Success,
+                );
+            } catch (error) {
+              Alert.alert(
+                "Update failed",
+                error instanceof Error
+                  ? error.message
+                  : "Unable to complete this tournament.",
               );
+            }
           },
         },
       ],
@@ -532,7 +555,7 @@ function AddTournamentForm({
   onAdd,
   onClose,
 }: {
-  onAdd: (data: any) => void;
+  onAdd: (data: any) => Promise<void>;
   onClose: () => void;
 }) {
   const c = useColors();
@@ -551,33 +574,44 @@ function AddTournamentForm({
   const [rank1Prize, setRank1Prize] = useState("");
   const [rank2Prize, setRank2Prize] = useState("");
   const [rank3Prize, setRank3Prize] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  function handleAdd() {
+  async function handleAdd() {
     if (!name.trim() || !map.trim() || !date.trim() || !time.trim()) {
       Alert.alert("Error", "Please fill Name, Map, Date and Time");
       return;
     }
-    onAdd({
-      game,
-      name: name.trim(),
-      map: map.trim(),
-      entryFee: entryType === "FREE" ? 0 : parseInt(entryFee, 10) || 0,
-      prizePool: parseInt(prizePool, 10) || 0,
-      status,
-      teamSize: 4,
-      maxTeams: maxPlayers,
-      date: date.trim(),
-      time: time.trim(),
-      perKillPrize: parseInt(perKillPrize, 10) || 0,
-      rankPrizes: {
-        rank1: parseInt(rank1Prize, 10) || 0,
-        rank2: parseInt(rank2Prize, 10) || 0,
-        rank3: parseInt(rank3Prize, 10) || 0,
-      },
-    });
-    if (Platform.OS !== "web")
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onClose();
+    setSaving(true);
+    try {
+      await onAdd({
+        game,
+        name: name.trim(),
+        map: map.trim(),
+        entryFee: entryType === "FREE" ? 0 : parseInt(entryFee, 10) || 0,
+        prizePool: parseInt(prizePool, 10) || 0,
+        status,
+        teamSize: 4,
+        maxTeams: maxPlayers,
+        date: date.trim(),
+        time: time.trim(),
+        perKillPrize: parseInt(perKillPrize, 10) || 0,
+        rankPrizes: {
+          rank1: parseInt(rank1Prize, 10) || 0,
+          rank2: parseInt(rank2Prize, 10) || 0,
+          rank3: parseInt(rank3Prize, 10) || 0,
+        },
+      });
+      if (Platform.OS !== "web")
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onClose();
+    } catch (error) {
+      Alert.alert(
+        "Create failed",
+        error instanceof Error ? error.message : "Unable to sync this tournament.",
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   const statusOpts: TournamentStatus[] = ["upcoming", "live", "completed"];
@@ -921,10 +955,13 @@ function AddTournamentForm({
 
       <TouchableOpacity
         onPress={handleAdd}
+        disabled={saving}
         activeOpacity={0.8}
-        style={styles.addSubmitBtn}
+        style={[styles.addSubmitBtn, saving && { opacity: 0.6 }]}
       >
-        <Text style={styles.addSubmitText}>Create Tournament</Text>
+        <Text style={styles.addSubmitText}>
+          {saving ? "Creating…" : "Create Tournament"}
+        </Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -1024,6 +1061,7 @@ export default function AdminScreen() {
   const router = useRouter();
   const {
     tournaments,
+    syncError,
     updateRoomDetails,
     updateTournamentSlots,
     completeTournament,
@@ -1092,10 +1130,23 @@ export default function AdminScreen() {
         </Pressable>
       </View>
 
+      {syncError ? (
+        <Text
+          style={{
+            color: "#F87171",
+            marginHorizontal: 20,
+            marginBottom: 12,
+            fontSize: 12,
+          }}
+        >
+          Tournament sync issue: {syncError}
+        </Text>
+      ) : null}
+
       {showAddForm ? (
         <AddTournamentForm
           onAdd={(data) => {
-            addTournament(data);
+            return addTournament(data);
           }}
           onClose={() => setShowAddForm(false)}
         />

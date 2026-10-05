@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: tournaments
+    description: Tournament reads and player joins
+  - name: admin
+    description: Protected tournament administration
 paths:
   /healthz:
     get:
@@ -24,7 +28,200 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /tournaments:
+    get:
+      operationId: listTournaments
+      tags: [tournaments]
+      summary: List tournaments
+      responses:
+        "200":
+          description: Tournament list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tournaments]
+                properties:
+                  tournaments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Tournament"
+  /tournaments/{id}/free-joins:
+    post:
+      operationId: joinFreeTournament
+      tags: [tournaments]
+      summary: Register a player for a free tournament
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FreeTournamentJoinRequest"
+      responses:
+        "200":
+          description: Existing or new free registration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FreeTournamentJoin"
+        "400":
+          description: Invalid registration
+        "404":
+          description: Tournament not found
+        "409":
+          description: Tournament is closed, full, or already joined
+  /tournaments/{id}/room:
+    get:
+      operationId: getTournamentRoom
+      tags: [tournaments]
+      summary: Get room credentials for a registered player
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: accessToken
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Room credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentRoom"
+        "403":
+          description: Player is not registered for this tournament
+        "404":
+          description: Tournament not found
+  /admin/session:
+    post:
+      operationId: createAdminSession
+      tags: [admin]
+      summary: Create a short-lived admin session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminSessionRequest"
+      responses:
+        "200":
+          description: Admin session token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSession"
+        "401":
+          description: Invalid admin password
+        "503":
+          description: Admin authentication is not configured
+  /admin/tournaments/import:
+    post:
+      operationId: importTournaments
+      tags: [admin]
+      summary: Import existing locally stored tournaments
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tournaments]
+              properties:
+                tournaments:
+                  type: array
+                  maxItems: 500
+                  items:
+                    $ref: "#/components/schemas/Tournament"
+      responses:
+        "200":
+          description: Number of records inserted; existing server records are preserved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [inserted]
+                properties:
+                  inserted:
+                    type: integer
+        "401":
+          description: Admin authentication required
+  /admin/tournaments:
+    post:
+      operationId: createTournament
+      tags: [admin]
+      summary: Create a tournament
+      security:
+        - AdminBearer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Tournament"
+      responses:
+        "201":
+          description: Tournament created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentResponse"
+        "400":
+          description: Invalid tournament
+        "401":
+          description: Admin authentication required
+        "409":
+          description: Tournament ID already exists
+  /admin/tournaments/{id}:
+    patch:
+      operationId: updateTournament
+      tags: [admin]
+      summary: Update tournament administration details
+      security:
+        - AdminBearer: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TournamentPatch"
+      responses:
+        "200":
+          description: Tournament updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentResponse"
+        "400":
+          description: Invalid tournament update
+        "401":
+          description: Admin authentication required
+        "404":
+          description: Tournament not found
 components:
+  securitySchemes:
+    AdminBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: HMAC token
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +230,183 @@ components:
           type: string
       required:
         - status
+    RankPrizes:
+      type: object
+      additionalProperties: false
+      properties:
+        rank1:
+          type: integer
+          minimum: 0
+        rank2:
+          type: integer
+          minimum: 0
+        rank3:
+          type: integer
+          minimum: 0
+      required: [rank1, rank2, rank3]
+    Tournament:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 120
+        game:
+          type: string
+          enum: [BGMI, FreeFire]
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        map:
+          type: string
+          minLength: 1
+          maxLength: 120
+        entryFee:
+          type: integer
+          minimum: 0
+        prizePool:
+          type: integer
+          minimum: 0
+        status:
+          type: string
+          enum: [live, upcoming, completed]
+        teamSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+        maxTeams:
+          type: integer
+          minimum: 1
+          maximum: 100000
+        registeredTeams:
+          type: integer
+          minimum: 0
+          maximum: 100000
+        date:
+          type: string
+          minLength: 1
+          maxLength: 32
+        time:
+          type: string
+          minLength: 1
+          maxLength: 32
+        roomId:
+          type: string
+          maxLength: 200
+        password:
+          type: string
+          maxLength: 200
+        winnerNote:
+          type: string
+          maxLength: 1000
+        completedAt:
+          type: string
+          format: date-time
+        perKillPrize:
+          type: integer
+          minimum: 0
+        rankPrizes:
+          $ref: "#/components/schemas/RankPrizes"
+      required:
+        - id
+        - game
+        - name
+        - map
+        - entryFee
+        - prizePool
+        - status
+        - teamSize
+        - maxTeams
+        - registeredTeams
+        - date
+        - time
+        - perKillPrize
+        - rankPrizes
+    TournamentPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        roomId:
+          type: string
+          maxLength: 200
+        password:
+          type: string
+          maxLength: 200
+        maxTeams:
+          type: integer
+          minimum: 1
+          maximum: 100000
+        status:
+          type: string
+          enum: [live, upcoming, completed]
+        winnerNote:
+          type: string
+          maxLength: 1000
+        completedAt:
+          type: string
+          format: date-time
+    TournamentResponse:
+      type: object
+      required: [tournament]
+      properties:
+        tournament:
+          $ref: "#/components/schemas/Tournament"
+    FreeTournamentJoinRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 100
+        mobile:
+          type: string
+          maxLength: 32
+        gameId:
+          type: string
+          maxLength: 100
+        gameType:
+          type: string
+          enum: [BGMI, FreeFire]
+      required: [username, mobile, gameId, gameType]
+    FreeTournamentJoin:
+      type: object
+      required: [paymentId, joinedAt, registeredTeams, roomAccessToken]
+      properties:
+        paymentId:
+          type: string
+        joinedAt:
+          type: string
+          format: date-time
+        registeredTeams:
+          type: integer
+          minimum: 0
+        roomAccessToken:
+          type: string
+    TournamentRoom:
+      type: object
+      properties:
+        roomId:
+          type: string
+        password:
+          type: string
+    AdminSessionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        password:
+          type: string
+          minLength: 1
+      required: [password]
+    AdminSession:
+      type: object
+      required: [token, expiresAt]
+      properties:
+        token:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
 

@@ -17,8 +17,14 @@ import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { TournamentProvider } from '@/context/TournamentContext';
 import { WalletProvider } from '@/context/WalletContext';
 import { View } from 'react-native';
+import { setBaseUrl } from '@workspace/api-client-react';
 
 void SplashScreen.preventAutoHideAsync();
+setBaseUrl(
+  process.env.EXPO_PUBLIC_DOMAIN
+    ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
+    : null,
+);
 
 const queryClient = new QueryClient();
 

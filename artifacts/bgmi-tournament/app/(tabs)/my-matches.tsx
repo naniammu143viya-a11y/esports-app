@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { FlatList, Platform, StyleSheet, Text, View } from "react-native";
+import {
+  FlatList,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
@@ -42,18 +49,53 @@ function formatCountdown(ms: number): string {
 function RoomDetailsBox({
   tournament,
   isPaid,
+  roomAccessToken,
 }: {
   tournament: Tournament;
   isPaid: boolean;
+  roomAccessToken?: string;
 }) {
   const c = useColors();
+  const { getTournamentRoom } = useTournaments();
   const [now, setNow] = useState(() => Date.now());
+  const [roomDetails, setRoomDetails] = useState<{
+    roomId?: string;
+    password?: string;
+  }>({});
+  const [roomLoadError, setRoomLoadError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const matchMs = parseMatchTime(tournament.date, tournament.time).getTime();
+  const revealMs = matchMs - 15 * 60 * 1000;
+  const shouldReveal = now >= revealMs;
 
   // Tick every second to update countdown
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!isPaid || !shouldReveal || !roomAccessToken) return;
+    let active = true;
+    setRoomLoadError(false);
+    getTournamentRoom(tournament.id, roomAccessToken)
+      .then((details) => {
+        if (active) setRoomDetails(details);
+      })
+      .catch(() => {
+        if (active) setRoomLoadError(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    getTournamentRoom,
+    isPaid,
+    roomAccessToken,
+    shouldReveal,
+    tournament.id,
+    retryCount,
+  ]);
 
   // Non-paid users: hide completely — show lock message
   if (!isPaid) {
@@ -76,10 +118,6 @@ function RoomDetailsBox({
   }
 
   // Paid users: check 15-minute window
-  const matchMs = parseMatchTime(tournament.date, tournament.time).getTime();
-  const revealMs = matchMs - 15 * 60 * 1000;
-  const shouldReveal = now >= revealMs;
-
   // Paid + before window → show countdown
   if (!shouldReveal) {
     const remaining = revealMs - now;
@@ -122,7 +160,7 @@ function RoomDetailsBox({
   }
 
   // Paid + in window → check if admin has set room details
-  if (!tournament.roomId) {
+  if (!roomDetails.roomId) {
     return (
       <View
         style={[
@@ -133,10 +171,22 @@ function RoomDetailsBox({
           },
         ]}
       >
-        <Ionicons name="time-outline" size={14} color="#EAB308" />
-        <Text style={[styles.pendingText, { color: "#EAB308" }]}>
-          Room details will be posted by admin shortly
-        </Text>
+        <Ionicons
+          name={roomLoadError ? "refresh-outline" : "time-outline"}
+          size={14}
+          color="#EAB308"
+        />
+        {roomLoadError ? (
+          <Pressable onPress={() => setRetryCount((count) => count + 1)}>
+            <Text style={[styles.pendingText, { color: "#EAB308" }]}>
+              Could not load room details. Tap to retry.
+            </Text>
+          </Pressable>
+        ) : (
+          <Text style={[styles.pendingText, { color: "#EAB308" }]}>
+            Room details will be posted by admin shortly
+          </Text>
+        )}
       </View>
     );
   }
@@ -161,7 +211,7 @@ function RoomDetailsBox({
           ROOM ID
         </Text>
         <Text style={[styles.roomValue, { color: "#22C55E" }]}>
-          {tournament.roomId}
+          {roomDetails.roomId}
         </Text>
       </View>
       <View
@@ -172,7 +222,7 @@ function RoomDetailsBox({
           PASSWORD
         </Text>
         <Text style={[styles.roomValue, { color: "#22C55E" }]}>
-          {tournament.password ?? "—"}
+          {roomDetails.password ?? "—"}
         </Text>
       </View>
     </View>
@@ -184,9 +234,11 @@ function RoomDetailsBox({
 function MatchCard({
   tournament,
   isPaid,
+  roomAccessToken,
 }: {
   tournament: Tournament;
   isPaid: boolean;
+  roomAccessToken?: string;
 }) {
   const c = useColors();
   const statusColor =
@@ -305,7 +357,11 @@ function MatchCard({
       <Text style={[styles.roomTitle, { color: c.mutedForeground }]}>
         ROOM DETAILS
       </Text>
-      <RoomDetailsBox tournament={tournament} isPaid={isPaid} />
+      <RoomDetailsBox
+        tournament={tournament}
+        isPaid={isPaid}
+        roomAccessToken={roomAccessToken}
+      />
     </View>
   );
 }
@@ -316,7 +372,7 @@ export default function MyMatchesScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { tournaments, joinedIds, payments } = useTournaments();
+  const { tournaments, joinedIds, payments, registrations } = useTournaments();
 
   const joined = tournaments.filter(
     (t) => joinedIds.includes(t.id) && !isTournamentHiddenFromPlayers(t),
@@ -358,7 +414,14 @@ export default function MyMatchesScreen() {
         data={joined}
         keyExtractor={(t) => t.id}
         renderItem={({ item }) => (
-          <MatchCard tournament={item} isPaid={isPaidFor(item)} />
+          <MatchCard
+            tournament={item}
+            isPaid={isPaidFor(item)}
+            roomAccessToken={
+              registrations.find((registration) => registration.tournamentId === item.id)
+                ?.roomAccessToken
+            }
+          />
         )}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}

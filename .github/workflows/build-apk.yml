@@ -33,7 +33,9 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Connect and Init EAS Project
+        working-directory: artifacts/bgmi-tournament
         run: npx eas-cli project:init --force
 
       - name: Build APK with EAS
+        working-directory: artifacts/bgmi-tournament
         run: npx eas-cli build --platform android --profile preview --non-interactive

@@ -1,3 +1,4 @@
 - [Expo SDK upgrades](expo-sdk-upgrades.md) — scope upgrades to the mobile workspace, align managed packages, then verify Router APIs and typings.
 - [GitHub connector workflow writes](github-connector-workflow-writes.md) — workflow writes may be blocked, and a connected account or saved credential is not proof a push will authenticate.
+- [pnpm firewall installs](pnpm-firewall-installs.md) — Replit's package firewall can reject transitive packages after lock resolution; review lockfile changes from failed installs.
 - [EAS remote build logs](eas-remote-build-logs.md) — GitHub Actions may show only a generic Gradle failure; inspect the Expo phase log.

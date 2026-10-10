@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "BattleZone",
-    "slug": "bgmi-tournament",
+    "slug": "expsesports-hub-naniammu143viyareplitapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -45,9 +45,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "824303db-e413-4097-aef3-a96b561f5a66"
+        "projectId": "fa2901c3-e679-48ad-9da4-4a971691b906"
       }
     },
-    "owner": "nanidil"
+    "owner": "nanidils-team"
   }
 }

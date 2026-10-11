@@ -15,6 +15,7 @@ import type { Tournament } from '@/context/TournamentContext';
 interface Props {
   tournament: Tournament;
   isJoined: boolean;
+  isPaymentPending?: boolean;
   /** Called when user wants to join. Screen decides free-join vs payment modal. */
   onJoin: (tournament: Tournament) => void;
 }
@@ -41,7 +42,7 @@ function StatusPill({ status }: { status: Tournament['status'] }) {
   );
 }
 
-export function TournamentCard({ tournament, isJoined, onJoin }: Props) {
+export function TournamentCard({ tournament, isJoined, isPaymentPending = false, onJoin }: Props) {
   const c = useColors();
   const isFull = tournament.registeredTeams >= tournament.maxTeams;
   const canJoin = !isJoined && !isFull && tournament.status !== 'completed';
@@ -100,7 +101,7 @@ export function TournamentCard({ tournament, isJoined, onJoin }: Props) {
         <View style={styles.metaItem}>
           <MaterialCommunityIcons name="account-group" size={12} color={c.mutedForeground} />
           <Text style={[styles.metaText, { color: c.mutedForeground }]}>
-            Squad {tournament.teamSize}v{tournament.teamSize}
+            {tournament.teamSize === 1 ? 'Solo' : tournament.teamSize === 2 ? 'Duo' : `Squad ${tournament.teamSize}v${tournament.teamSize}`}
           </Text>
         </View>
         {availableSeats <= 5 && availableSeats > 0 && !isJoined && !isFull && (
@@ -156,7 +157,7 @@ export function TournamentCard({ tournament, isJoined, onJoin }: Props) {
             styles.joinBtn,
             {
               backgroundColor: isJoined
-                ? 'rgba(34,197,94,0.15)'
+                ? isPaymentPending ? 'rgba(234,179,8,0.15)' : 'rgba(34,197,94,0.15)'
                 : isFull || tournament.status === 'completed'
                 ? c.muted
                 : c.primary,
@@ -172,14 +173,14 @@ export function TournamentCard({ tournament, isJoined, onJoin }: Props) {
               styles.joinText,
               {
                 color: isJoined
-                  ? '#22C55E'
+                  ? isPaymentPending ? '#EAB308' : '#22C55E'
                   : isFull || tournament.status === 'completed'
                   ? c.mutedForeground
                   : c.primaryForeground,
               },
             ]}
           >
-            {isJoined ? '✓ Registered' : isFull ? 'Match Full' : tournament.status === 'completed' ? 'Ended' : 'Join Now'}
+            {isPaymentPending ? 'Payment Pending' : isJoined ? '✓ Registered' : isFull ? 'Match Full' : tournament.status === 'completed' ? 'Ended' : 'Join Now'}
           </Text>
         </Pressable>
       </View>

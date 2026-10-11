@@ -46,6 +46,9 @@ const EMPTY_WALLET: WalletData = { balance: 0, totalEarned: 0, earnings: [] };
 interface WalletContextType {
   wallet: WalletData;
   withdrawalRequests: WithdrawalRequest[];
+  adminUpiId: string;
+  adminUpiLoaded: boolean;
+  setAdminUpiId: (upiId: string) => Promise<void>;
   /** Admin: credit winnings to a player (with optional breakdown) */
   addEarnings: (
     username: string,
@@ -83,16 +86,30 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [wallet, setWallet] = useState<WalletData>(EMPTY_WALLET);
   const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequest[]>([]);
+  const [adminUpiId, setAdminUpiIdState] = useState('');
+  const [adminUpiLoaded, setAdminUpiLoaded] = useState(false);
 
   useEffect(() => { loadData(); }, [user?.username]);
 
   async function loadData() {
-    const [wallets, requests] = await Promise.all([loadAllWallets(), loadWithdrawals()]);
+    const [wallets, requests, storedUpiId] = await Promise.all([
+      loadAllWallets(),
+      loadWithdrawals(),
+      AsyncStorage.getItem(ADMIN_UPI_KEY),
+    ]);
     setWallet(user?.username ? (wallets[user.username] ?? EMPTY_WALLET) : EMPTY_WALLET);
     setWithdrawalRequests(requests);
+    setAdminUpiIdState(storedUpiId?.trim() ?? '');
+    setAdminUpiLoaded(true);
   }
 
   async function refreshWallet() { await loadData(); }
+
+  async function setAdminUpiId(upiId: string): Promise<void> {
+    const normalized = upiId.trim();
+    await AsyncStorage.setItem(ADMIN_UPI_KEY, normalized);
+    setAdminUpiIdState(normalized);
+  }
 
   async function addEarnings(
     username: string,
@@ -152,7 +169,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <WalletContext.Provider value={{
-      wallet, withdrawalRequests, addEarnings, requestWithdrawal, markWithdrawalPaid,
+      wallet, withdrawalRequests, adminUpiId, adminUpiLoaded, setAdminUpiId,
+      addEarnings, requestWithdrawal, markWithdrawalPaid,
       getWalletFor, refreshWallet,
     }}>
       {children}

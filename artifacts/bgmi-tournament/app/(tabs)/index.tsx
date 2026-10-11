@@ -33,7 +33,7 @@ export default function LobbyScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
-  const { tournaments, joinedIds, joinFreeWithPlayer } = useTournaments();
+  const { tournaments, joinedIds, payments, joinFreeWithPlayer } = useTournaments();
   const router = useRouter();
 
   const [gameFilter, setGameFilter] = useState<GameFilter>('All');
@@ -147,6 +147,7 @@ export default function LobbyScreen() {
           <TournamentCard
             tournament={item}
             isJoined={joinedIds.includes(item.id)}
+            isPaymentPending={payments[item.id]?.status === 'PENDING'}
             onJoin={handleJoin}
           />
         )}

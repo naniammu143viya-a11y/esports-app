@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Linking,
   Modal,
@@ -8,27 +7,26 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as IntentLauncher from 'expo-intent-launcher';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/context/AuthContext';
 import { useTournaments } from '@/context/TournamentContext';
-import { ADMIN_UPI_KEY } from '@/context/WalletContext';
+import { useWallet } from '@/context/WalletContext';
 import type { Tournament } from '@/context/TournamentContext';
 
 const UPI_NAME = 'BattleZone Tournaments';
-const FALLBACK_UPI = 'battlezone@upi'; // shown only if admin hasn't set one
 
 function buildUpiUrl(upiId: string, amount: number, note: string) {
   return (
     `upi://pay?pa=${encodeURIComponent(upiId)}` +
     `&pn=${encodeURIComponent(UPI_NAME)}` +
-    `&am=${amount}.00` +
+    `&am=${amount.toFixed(2)}` +
     `&cu=INR` +
     `&tn=${encodeURIComponent(note)}`
   );
@@ -65,7 +63,7 @@ const UPI_APPS = [
   },
 ];
 
-type Step = 'payment' | 'verifying' | 'success';
+type Step = 'payment' | 'utr' | 'pending';
 
 interface Props {
   tournament: Tournament;
@@ -75,27 +73,23 @@ interface Props {
 export function PaymentModal({ tournament, onClose }: Props) {
   const c = useColors();
   const { user } = useAuth();
-  const { confirmPayment } = useTournaments();
+  const { submitPaymentUtr } = useTournaments();
+  const { adminUpiId, adminUpiLoaded } = useWallet();
   const [step, setStep] = useState<Step>('payment');
   const [paymentId, setPaymentId] = useState('');
   const [intentLaunched, setIntentLaunched] = useState(false);
-  const [adminUpiId, setAdminUpiId] = useState<string>(FALLBACK_UPI);
-  const [upiLoaded, setUpiLoaded] = useState(false);
+  const [utr, setUtr] = useState('');
+  const [utrError, setUtrError] = useState('');
 
-  // ── Load admin's UPI ID from storage ──
-  useEffect(() => {
-    AsyncStorage.getItem(ADMIN_UPI_KEY).then((stored) => {
-      if (stored && stored.trim()) setAdminUpiId(stored.trim());
-      setUpiLoaded(true);
-    });
-  }, []);
-
-  const upiUrl = upiLoaded
+  const upiUrl = adminUpiLoaded && adminUpiId
     ? buildUpiUrl(adminUpiId, tournament.entryFee, `Entry: ${tournament.name}`)
     : '';
 
   async function openUpiApp(packageName?: string) {
-    if (!upiUrl) return;
+    if (!upiUrl) {
+      Alert.alert('Payment details unavailable', 'The admin has not set a payment UPI ID yet.');
+      return;
+    }
 
     try {
       if (Platform.OS === 'android') {
@@ -134,24 +128,25 @@ export function PaymentModal({ tournament, onClose }: Props) {
     );
   }
 
-  async function handleConfirmPayment() {
+  async function handleSubmitUtr() {
+    const normalizedUtr = utr.trim();
+    if (!/^\d{12}$/.test(normalizedUtr)) {
+      setUtrError('Enter the 12-digit UTR shown in your UPI payment receipt.');
+      return;
+    }
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setStep('verifying');
-    await new Promise((r) => setTimeout(r, 2000));
     try {
-      const id = await confirmPayment(tournament.id, tournament.entryFee, {
+      const id = await submitPaymentUtr(tournament.id, tournament.entryFee, {
         username: user?.username ?? 'Unknown',
         mobile: user?.mobile ?? '',
         gameId: user?.gameId ?? '',
         gameType: user?.gameType ?? 'BGMI',
-      });
+      }, normalizedUtr);
       setPaymentId(id);
-      setStep('success');
+      setStep('pending');
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setTimeout(onClose, 2500);
-    } catch {
-      setStep('payment');
-      Alert.alert('Error', 'Payment confirmation failed. Please try again.');
+    } catch (error) {
+      setUtrError(error instanceof Error ? error.message : 'Payment submission failed. Please try again.');
     }
   }
 
@@ -162,7 +157,7 @@ export function PaymentModal({ tournament, onClose }: Props) {
       <View style={styles.backdrop}>
         <View style={[styles.sheet, { backgroundColor: c.card, borderColor: c.border }]}>
 
-          {step === 'payment' && (
+          {step !== 'pending' && (
             <Pressable style={styles.closeBtn} onPress={onClose}>
               <Ionicons name="close" size={20} color={c.mutedForeground} />
             </Pressable>
@@ -208,10 +203,16 @@ export function PaymentModal({ tournament, onClose }: Props) {
 
               <View style={[styles.divider, { backgroundColor: c.border }]} />
 
-              {!upiLoaded ? (
+              {!adminUpiLoaded ? (
                 <View style={styles.qrLoading}>
-                  <ActivityIndicator size="small" color={c.primary} />
                   <Text style={[styles.qrLoadingText, { color: c.mutedForeground }]}>Loading payment details…</Text>
+                </View>
+              ) : !adminUpiId ? (
+                <View style={styles.qrLoading}>
+                  <Ionicons name="alert-circle-outline" size={22} color="#EAB308" />
+                  <Text style={[styles.qrLoadingText, { color: c.mutedForeground }]}>
+                    The admin has not configured a payment UPI ID yet.
+                  </Text>
                 </View>
               ) : (
                 <>
@@ -249,10 +250,14 @@ export function PaymentModal({ tournament, onClose }: Props) {
               <View style={[styles.divider, { backgroundColor: c.border }]} />
 
               <Pressable
-                onPress={handleConfirmPayment}
+                onPress={() => setStep('utr')}
+                disabled={!adminUpiLoaded || !adminUpiId}
                 style={({ pressed }) => [
                   styles.confirmBtn,
-                  { backgroundColor: intentLaunched ? '#22C55E' : c.primary, opacity: pressed ? 0.85 : 1 },
+                  {
+                    backgroundColor: intentLaunched ? '#22C55E' : c.primary,
+                    opacity: !adminUpiLoaded || !adminUpiId ? 0.5 : pressed ? 0.85 : 1,
+                  },
                 ]}
               >
                 <MaterialCommunityIcons
@@ -261,47 +266,70 @@ export function PaymentModal({ tournament, onClose }: Props) {
                   color="#fff"
                 />
                 <Text style={styles.confirmBtnText}>
-                  {intentLaunched ? "I've Paid — Confirm Registration" : 'I Have Paid'}
+                  I've Paid — Enter UTR
                 </Text>
               </Pressable>
 
               <Text style={[styles.disclaimer, { color: c.mutedForeground }]}>
-                Tap a UPI app or scan the QR, then confirm once payment is complete.
+                After paying, submit the 12-digit UTR from your transaction receipt. Admin approval completes registration.
               </Text>
             </>
           )}
 
-          {/* ═══════════════════ VERIFYING STEP ═══════════════════ */}
-          {step === 'verifying' && (
-            <View style={styles.centeredStep}>
-              <ActivityIndicator size="large" color={c.primary} />
-              <Text style={[styles.stepTitle, { color: c.foreground }]}>Verifying Payment</Text>
+          {/* ═══════════════════ UTR SUBMISSION STEP ═══════════════════ */}
+          {step === 'utr' && (
+            <View>
+              <Text style={[styles.stepTitle, { color: c.foreground, textAlign: 'center' }]}>Submit your UTR</Text>
               <Text style={[styles.stepSub, { color: c.mutedForeground }]}>
-                Please wait while we confirm your payment…
+                Enter the 12-digit transaction reference from your UPI receipt. Your tournament registration stays pending until admin review.
               </Text>
+              <TextInput
+                value={utr}
+                onChangeText={(value) => {
+                  setUtr(value.replace(/\D/g, '').slice(0, 12));
+                  setUtrError('');
+                }}
+                placeholder="12-digit UTR"
+                placeholderTextColor={c.mutedForeground}
+                keyboardType="number-pad"
+                maxLength={12}
+                autoFocus
+                style={[styles.utrInput, { color: c.foreground, backgroundColor: c.input, borderColor: utrError ? '#EF4444' : c.border }]}
+                accessibilityLabel="12-digit transaction UTR"
+              />
+              {utrError ? <Text style={styles.utrError}>{utrError}</Text> : null}
+              <Pressable
+                onPress={handleSubmitUtr}
+                style={({ pressed }) => [styles.confirmBtn, { backgroundColor: c.primary, opacity: pressed ? 0.8 : 1 }]}
+              >
+                <Text style={styles.confirmBtnText}>Submit for Verification</Text>
+              </Pressable>
             </View>
           )}
 
-          {/* ═══════════════════ SUCCESS STEP ═══════════════════ */}
-          {step === 'success' && (
+          {/* ═══════════════════ PENDING STEP ═══════════════════ */}
+          {step === 'pending' && (
             <View style={styles.centeredStep}>
-              <View style={styles.successCircle}>
-                <Ionicons name="checkmark" size={36} color="#22C55E" />
+              <View style={[styles.successCircle, { backgroundColor: 'rgba(234,179,8,0.15)', borderColor: 'rgba(234,179,8,0.4)' }]}>
+                <Ionicons name="time-outline" size={36} color="#EAB308" />
               </View>
-              <Text style={[styles.stepTitle, { color: c.foreground }]}>Payment Confirmed!</Text>
+              <Text style={[styles.stepTitle, { color: c.foreground }]}>Payment Submitted</Text>
               <Text style={[styles.stepSub, { color: c.mutedForeground }]}>
-                You're registered for{'\n'}
+                Your UTR is pending admin verification for{'\n'}
                 <Text style={{ color: c.foreground, fontFamily: 'Inter_700Bold' }}>
                   {tournament.name}
                 </Text>
               </Text>
               <View style={[styles.payIdBox, { backgroundColor: c.muted }]}>
-                <Text style={[styles.payIdLabel, { color: c.mutedForeground }]}>PAYMENT ID</Text>
-                <Text style={[styles.payIdValue, { color: '#22C55E' }]}>{paymentId}</Text>
+                <Text style={[styles.payIdLabel, { color: c.mutedForeground }]}>SUBMISSION ID</Text>
+                <Text style={[styles.payIdValue, { color: '#EAB308' }]}>{paymentId}</Text>
               </View>
               <Text style={[styles.stepSub, { color: c.mutedForeground, fontSize: 12 }]}>
-                Room details unlock 15 minutes before the match.
+                Your lobby status will update after approval.
               </Text>
+              <Pressable onPress={onClose} style={[styles.confirmBtn, { backgroundColor: c.primary, width: '100%' }]}>
+                <Text style={styles.confirmBtnText}>Done</Text>
+              </Pressable>
             </View>
           )}
 
@@ -339,6 +367,19 @@ const styles = StyleSheet.create({
   divider: { height: 1, marginVertical: 16 },
   qrLoading: { alignItems: 'center', gap: 8, paddingVertical: 20 },
   qrLoadingText: { fontSize: 13, fontFamily: 'Inter_400Regular' },
+  utrInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginTop: 18,
+    marginBottom: 8,
+    fontSize: 18,
+    fontFamily: 'Inter_600SemiBold',
+    textAlign: 'center',
+    letterSpacing: 2,
+  },
+  utrError: { color: '#EF4444', fontSize: 12, fontFamily: 'Inter_500Medium', marginBottom: 10, textAlign: 'center' },
   sectionLabel: {
     fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8,
     textAlign: 'center', marginBottom: 12,

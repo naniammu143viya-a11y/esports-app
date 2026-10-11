@@ -32,10 +32,14 @@ export interface Tournament {
 
 export interface Payment {
   tournamentId: string;
-  status: 'PAID' | 'FREE';
+  status: 'PENDING' | 'PAID' | 'FREE' | 'REJECTED';
   paymentId: string;
   paidAt: string;
   amount: number;
+  utr?: string;
+  submittedAt?: string;
+  verifiedAt?: string;
+  player?: PlayerInfo;
 }
 
 /** Player registration record (paid OR free join) */
@@ -69,6 +73,9 @@ interface TournamentContextType {
   joinTournament: (id: string) => void;
   /** Confirm payment for a paid tournament. Returns generated paymentId. */
   confirmPayment: (tournamentId: string, amount: number, player: PlayerInfo) => Promise<string>;
+  submitPaymentUtr: (tournamentId: string, amount: number, player: PlayerInfo, utr: string) => Promise<string>;
+  approvePayment: (tournamentId: string) => Promise<void>;
+  rejectPayment: (tournamentId: string) => Promise<void>;
   getRegistrations: (tournamentId: string) => Registration[];
   updateRoomDetails: (id: string, roomId: string, password: string) => void;
   /** Admin: change the max player slots for a tournament */
@@ -137,7 +144,12 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   const [payments, setPayments] = useState<Record<string, Payment>>({});
   const [registrations, setRegistrations] = useState<Registration[]>([]);
 
-  const joinedIds: string[] = [...freeJoins, ...Object.keys(payments)];
+  const joinedIds: string[] = [
+    ...freeJoins,
+    ...Object.entries(payments)
+      .filter(([, payment]) => payment.status !== 'REJECTED')
+      .map(([tournamentId]) => tournamentId),
+  ];
 
   useEffect(() => {
     (async () => {
@@ -247,6 +259,78 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     return paymentId;
   }
 
+  async function submitPaymentUtr(
+    tournamentId: string,
+    amount: number,
+    player: PlayerInfo,
+    utr: string,
+  ): Promise<string> {
+    if (!/^\d{12}$/.test(utr)) throw new Error('Enter a valid 12-digit UTR.');
+    if (Object.values(payments).some((payment) => payment.status !== 'REJECTED' && payment.utr === utr)) {
+      throw new Error('This UTR has already been submitted.');
+    }
+    const existing = payments[tournamentId];
+    if (existing && existing.status !== 'REJECTED') {
+      throw new Error('A payment for this tournament is already submitted.');
+    }
+
+    const submittedAt = new Date().toISOString();
+    const paymentId = `PAY${Date.now().toString(36).toUpperCase()}`;
+    const pendingPayment: Payment = {
+      tournamentId,
+      status: 'PENDING',
+      paymentId,
+      paidAt: submittedAt,
+      submittedAt,
+      amount,
+      utr,
+      player,
+    };
+    const updatedPayments = { ...payments, [tournamentId]: pendingPayment };
+    setPayments(updatedPayments);
+    await AsyncStorage.setItem(PAYMENTS_KEY, JSON.stringify(updatedPayments));
+    return paymentId;
+  }
+
+  async function approvePayment(tournamentId: string): Promise<void> {
+    const payment = payments[tournamentId];
+    if (!payment || payment.status !== 'PENDING' || !payment.player) {
+      throw new Error('This payment is no longer pending verification.');
+    }
+    const approved: Payment = { ...payment, status: 'PAID', verifiedAt: new Date().toISOString() };
+    const updatedPayments = { ...payments, [tournamentId]: approved };
+    const registration: Registration = {
+      tournamentId,
+      ...payment.player,
+      paymentId: payment.paymentId,
+      paidAt: approved.verifiedAt!,
+      amount: payment.amount,
+    };
+    const updatedRegistrations = [...registrations, registration];
+    const updatedTournaments = tournaments.map((t) =>
+      t.id === tournamentId ? { ...t, registeredTeams: Math.min(t.registeredTeams + 1, t.maxTeams) } : t,
+    );
+
+    setPayments(updatedPayments);
+    setRegistrations(updatedRegistrations);
+    await Promise.all([
+      AsyncStorage.setItem(PAYMENTS_KEY, JSON.stringify(updatedPayments)),
+      AsyncStorage.setItem(REGISTRATIONS_KEY, JSON.stringify(updatedRegistrations)),
+      persistTournaments(updatedTournaments),
+    ]);
+  }
+
+  async function rejectPayment(tournamentId: string): Promise<void> {
+    const payment = payments[tournamentId];
+    if (!payment || payment.status !== 'PENDING') return;
+    const updatedPayments = {
+      ...payments,
+      [tournamentId]: { ...payment, status: 'REJECTED' as const, verifiedAt: new Date().toISOString() },
+    };
+    setPayments(updatedPayments);
+    await AsyncStorage.setItem(PAYMENTS_KEY, JSON.stringify(updatedPayments));
+  }
+
   function getRegistrations(tournamentId: string): Registration[] {
     return registrations.filter((r) => r.tournamentId === tournamentId);
   }
@@ -264,6 +348,7 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
   function addTournament(t: Omit<Tournament, 'id' | 'registeredTeams'>) {
     const newT: Tournament = {
       ...t,
+      status: 'upcoming',
       id: Date.now().toString() + Math.random().toString(36).substring(2, 7),
       registeredTeams: 0,
     };
@@ -274,7 +359,8 @@ export function TournamentProvider({ children }: { children: React.ReactNode }) 
     <TournamentContext.Provider
       value={{
         tournaments, joinedIds, payments, registrations,
-        joinFreeWithPlayer, joinTournament, confirmPayment,
+        joinFreeWithPlayer, joinTournament, confirmPayment, submitPaymentUtr,
+        approvePayment, rejectPayment,
         getRegistrations, updateRoomDetails, updateTournamentSlots, addTournament,
       }}
     >

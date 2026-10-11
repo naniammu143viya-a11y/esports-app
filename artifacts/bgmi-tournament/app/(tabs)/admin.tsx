@@ -14,34 +14,26 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/context/AuthContext';
 import { useTournaments } from '@/context/TournamentContext';
-import { useWallet, ADMIN_UPI_KEY } from '@/context/WalletContext';
+import { useWallet } from '@/context/WalletContext';
 import { GameBadge } from '@/components/GameBadge';
 import { RegisteredPlayersModal } from '@/components/RegisteredPlayersModal';
-import type { GameType, TournamentStatus, Tournament } from '@/context/TournamentContext';
+import type { GameType, Tournament, Payment } from '@/context/TournamentContext';
 import type { WithdrawalRequest } from '@/context/WalletContext';
 
 // ─── Admin UPI Settings Card ──────────────────────────────────────────────────
 function AdminUpiCard() {
   const c = useColors();
-  const [upiId, setUpiId] = useState('');
+  const { adminUpiId: upiId, setAdminUpiId } = useWallet();
   const [editing, setEditing] = useState(false);
   const [draftUpi, setDraftUpi] = useState('');
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
-    AsyncStorage.getItem(ADMIN_UPI_KEY).then((v) => {
-      if (v) { setUpiId(v); setDraftUpi(v); }
-    });
-  }, []);
-
   async function handleSave() {
     if (!draftUpi.trim()) { Alert.alert('Error', 'UPI ID cannot be empty.'); return; }
-    await AsyncStorage.setItem(ADMIN_UPI_KEY, draftUpi.trim());
-    setUpiId(draftUpi.trim());
+    await setAdminUpiId(draftUpi.trim());
     setEditing(false);
     setSaved(true);
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -94,7 +86,7 @@ function AdminUpiCard() {
         </View>
       ) : (
         <Pressable
-          onPress={() => setEditing(true)}
+          onPress={() => { setDraftUpi(upiId); setEditing(true); }}
           style={[styles.upiDisplay, { backgroundColor: c.muted }]}
         >
           <Text style={[styles.upiDisplayText, { color: upiId ? c.foreground : c.mutedForeground }]} numberOfLines={1}>
@@ -103,6 +95,51 @@ function AdminUpiCard() {
           <Ionicons name="pencil-outline" size={15} color={c.mutedForeground} />
         </Pressable>
       )}
+    </View>
+  );
+}
+
+function PaymentVerificationCard({
+  payment,
+  tournamentName,
+  onApprove,
+  onReject,
+}: {
+  payment: Payment;
+  tournamentName: string;
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+}) {
+  const c = useColors();
+  const player = payment.player;
+  return (
+    <View style={[styles.wdCard, { backgroundColor: c.card, borderColor: 'rgba(234,179,8,0.4)' }]}>
+      <View style={styles.wdCardTop}>
+        <View style={[styles.wdDot, { backgroundColor: '#EAB308' }]} />
+        <Text style={[styles.wdUsername, { color: c.foreground }]}>{player?.username ?? 'Player'}</Text>
+        <Text style={[styles.wdAmount, { color: '#EAB308' }]}>₹{payment.amount}</Text>
+      </View>
+      <Text style={[styles.withdrawSubLabel, { color: c.mutedForeground }]}>{tournamentName}</Text>
+      <Text style={[styles.roomCardMeta, { color: c.mutedForeground }]}>
+        UTR: {payment.utr ?? 'Missing'} · {player?.mobile ?? 'No phone'}
+      </Text>
+      <Text style={[styles.roomCardMeta, { color: c.mutedForeground }]}>
+        Game ID: {player?.gameId ?? '—'} · Submitted {payment.submittedAt ? new Date(payment.submittedAt).toLocaleString('en-IN') : ''}
+      </Text>
+      <View style={styles.verificationActions}>
+        <Pressable
+          onPress={() => onReject(payment.tournamentId)}
+          style={[styles.verifyButton, { backgroundColor: c.muted }]}
+        >
+          <Text style={[styles.verifyButtonText, { color: c.mutedForeground }]}>Reject</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => onApprove(payment.tournamentId)}
+          style={[styles.verifyButton, { backgroundColor: '#22C55E' }]}
+        >
+          <Text style={[styles.verifyButtonText, { color: '#fff' }]}>Approve payment</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -290,9 +327,9 @@ type EntryType = 'FREE' | 'PAID';
 function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onClose: () => void }) {
   const c = useColors();
   const [game, setGame] = useState<GameType>('BGMI');
+  const [teamSize, setTeamSize] = useState<1 | 2 | 4>(4);
   const [name, setName] = useState('');
   const [map, setMap] = useState('');
-  const [status, setStatus] = useState<TournamentStatus>('upcoming');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [entryType, setEntryType] = useState<EntryType>('PAID');
@@ -316,8 +353,8 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
       map: map.trim(),
       entryFee: entryType === 'FREE' ? 0 : (parseInt(entryFee, 10) || 0),
       prizePool: parseInt(prizePool, 10) || 0,
-      status,
-      teamSize: 4,
+      status: 'upcoming',
+      teamSize,
       maxTeams: maxPlayers,
       date: date.trim(),
       time: time.trim(),
@@ -331,8 +368,6 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     onClose();
   }
-
-  const statusOpts: TournamentStatus[] = ['upcoming', 'ongoing', 'completed'];
 
   return (
     <ScrollView
@@ -364,19 +399,23 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
         })}
       </View>
 
-      {/* Status */}
-      <Text style={[styles.fLabel, { color: c.mutedForeground }]}>STATUS</Text>
+      {/* Tournament mode */}
+      <Text style={[styles.fLabel, { color: c.mutedForeground }]}>TOURNAMENT MODE</Text>
       <View style={styles.chipRow}>
-        {statusOpts.map((s) => {
-          const active = status === s;
+        {([
+          { size: 1 as const, label: 'Solo' },
+          { size: 2 as const, label: 'Duo' },
+          { size: 4 as const, label: 'Squad 4v4' },
+        ]).map((mode) => {
+          const active = teamSize === mode.size;
           return (
-            <Pressable key={s} onPress={() => setStatus(s)}
+            <Pressable key={mode.size} onPress={() => setTeamSize(mode.size)}
               style={[styles.chip, {
                 borderColor: active ? c.primary : c.border,
                 backgroundColor: active ? 'rgba(255,107,0,0.15)' : 'transparent',
               }]}>
               <Text style={[styles.chipText, { color: active ? c.primary : c.mutedForeground }]}>
-                {s.charAt(0).toUpperCase() + s.slice(1)}
+                {mode.label}
               </Text>
             </Pressable>
           );
@@ -624,7 +663,10 @@ export default function AdminScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const router = useRouter();
-  const { tournaments, updateRoomDetails, updateTournamentSlots, addTournament, getRegistrations } = useTournaments();
+  const {
+    tournaments, payments, updateRoomDetails, updateTournamentSlots, addTournament,
+    getRegistrations, approvePayment, rejectPayment,
+  } = useTournaments();
   const { withdrawalRequests, markWithdrawalPaid } = useWallet();
   const [showAddForm, setShowAddForm] = useState(false);
   const [viewingTournament, setViewingTournament] = useState<Tournament | null>(null);
@@ -643,10 +685,25 @@ export default function AdminScreen() {
 
   const pendingWithdrawals = withdrawalRequests.filter((r) => r.status === 'PENDING');
   const paidWithdrawals = withdrawalRequests.filter((r) => r.status === 'PAID');
+  const pendingPayments = Object.values(payments).filter((p) => p.status === 'PENDING');
 
   async function handleMarkPaid(requestId: string) {
     await markWithdrawalPaid(requestId);
     if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }
+
+  async function handleApprovePayment(tournamentId: string) {
+    try {
+      await approvePayment(tournamentId);
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      Alert.alert('Unable to approve', error instanceof Error ? error.message : 'Please try again.');
+    }
+  }
+
+  async function handleRejectPayment(tournamentId: string) {
+    await rejectPayment(tournamentId);
+    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
   }
 
   return (
@@ -693,6 +750,29 @@ export default function AdminScreen() {
             <>
               {/* UPI Settings */}
               <AdminUpiCard />
+
+              <View style={styles.verificationSection}>
+                <View style={[styles.withdrawHeader, { borderColor: c.border }]}>
+                  <Ionicons name="shield-checkmark-outline" size={16} color={c.primary} />
+                  <Text style={[styles.withdrawTitle, { color: c.foreground }]}>Payment Verification</Text>
+                  {pendingPayments.length > 0 && (
+                    <View style={styles.pendingBadge}>
+                      <Text style={styles.pendingBadgeText}>{pendingPayments.length}</Text>
+                    </View>
+                  )}
+                </View>
+                {pendingPayments.length === 0 ? (
+                  <Text style={[styles.withdrawSubLabel, { color: c.mutedForeground }]}>No payments awaiting review</Text>
+                ) : pendingPayments.map((payment) => (
+                  <PaymentVerificationCard
+                    key={payment.paymentId}
+                    payment={payment}
+                    tournamentName={tournaments.find((t) => t.id === payment.tournamentId)?.name ?? 'Tournament'}
+                    onApprove={handleApprovePayment}
+                    onReject={handleRejectPayment}
+                  />
+                ))}
+              </View>
 
               <Text style={[styles.sectionLabel, { color: c.mutedForeground }]}>
                 {tournaments.length} TOURNAMENT{tournaments.length !== 1 ? 'S' : ''}
@@ -763,6 +843,10 @@ const styles = StyleSheet.create({
   addBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   listContent: { paddingHorizontal: 16, paddingBottom: 120 },
   sectionLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8, marginBottom: 12, marginTop: 4 },
+  verificationSection: { marginTop: 18 },
+  verificationActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 },
+  verifyButton: { borderRadius: 9, paddingHorizontal: 14, paddingVertical: 9 },
+  verifyButtonText: { fontSize: 12, fontFamily: 'Inter_700Bold' },
 
   // UPI card
   upiCard: {

@@ -5,8 +5,10 @@ description: Replit's GitHub connector may block writes to .github/workflows eve
 
 Writes to `.github/workflows` can be blocked by the connector's Cloudflare layer, while normal repository reads and root file creation still succeed. The native GitHub SDK may expose REST and GraphQL clients, but GraphQL commit mutations can require a scope the connection does not have.
 
-Git CLI authentication also needs verification: in this workspace, adding the GitHub connection reported success while its status remained `not_added`, and a push using a `GIT_URL` secret was rejected. Neither a successful bind result nor a saved-secret confirmation proves GitHub accepted a push.
+Git CLI authentication also needs verification: a healthy GitHub OAuth connection with `repo` and `workflow` scopes still produced `Invalid username or token` on a shell push in this workspace. Neither a successful bind result nor a healthy connection proves GitHub accepted a push.
 
-**Why:** A repository write can appear authorized while the specific workflow path is rejected, and an authentication setup can report success without a successful Git operation.
+Keep this project's Git remote credential-free; never embed a PAT in its URL.
 
-**How to apply:** Keep credentials out of Git remotes and logs. Verify the remote branch after every attempted push. If workflow writes fail with Cloudflare HTML or a scope error, report the connector limitation; if auth fails, ask for credential repair through Replit Secrets without inspecting the value. Never claim a workflow was pushed until the push succeeds.
+**Why:** The user explicitly requested that PATs stay out of the remote URL, and this workspace has rejected pushes even when the OAuth connection reports healthy.
+
+**How to apply:** Prefer the GitHub OAuth connection for pushes; verify the remote branch after every attempt and never claim success until the command succeeds. If auth still fails, request OAuth reauthorization or explain the remaining secure setup; do not inspect or place token values in remotes or logs. If workflow writes fail with Cloudflare HTML or a scope error, report the connector limitation.

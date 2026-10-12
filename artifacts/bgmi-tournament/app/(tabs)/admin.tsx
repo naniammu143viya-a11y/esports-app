@@ -20,7 +20,7 @@ import { useTournaments } from '@/context/TournamentContext';
 import { useWallet } from '@/context/WalletContext';
 import { GameBadge } from '@/components/GameBadge';
 import { RegisteredPlayersModal } from '@/components/RegisteredPlayersModal';
-import type { GameType, Tournament, Payment } from '@/context/TournamentContext';
+import type { GameType, Tournament, TournamentStatus, Payment } from '@/context/TournamentContext';
 import type { WithdrawalRequest } from '@/context/WalletContext';
 
 // ─── Admin UPI Settings Card ──────────────────────────────────────────────────
@@ -376,6 +376,7 @@ function AddTournamentForm({
   const c = useColors();
   const [game, setGame] = useState<GameType>('BGMI');
   const [teamSize, setTeamSize] = useState<1 | 2 | 4>(4);
+  const [status, setStatus] = useState<TournamentStatus>('upcoming');
   const [name, setName] = useState('');
   const [map, setMap] = useState('');
   const [date, setDate] = useState('');
@@ -404,7 +405,7 @@ function AddTournamentForm({
         map: map.trim(),
         entryFee: entryType === 'FREE' ? 0 : (parseInt(entryFee, 10) || 0),
         prizePool: parseInt(prizePool, 10) || 0,
-        status: 'upcoming',
+        status,
         teamSize,
         maxTeams: maxPlayers,
         date: date.trim(),
@@ -426,14 +427,19 @@ function AddTournamentForm({
     }
   }
 
+  const statusOptions: Array<{ value: TournamentStatus; label: string }> = [
+    { value: 'upcoming', label: 'Upcoming' },
+    { value: 'ongoing', label: 'Live' },
+    { value: 'completed', label: 'Completed' },
+  ];
+
   return (
-    <View style={styles.addFormRoot}>
-      <ScrollView
-        style={[styles.formCard, { backgroundColor: c.card, borderColor: c.border }]}
-        contentContainerStyle={styles.addFormContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
+    <ScrollView
+      style={[styles.formCard, { backgroundColor: c.card, borderColor: c.border }]}
+      contentContainerStyle={styles.addFormContent}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.formHeader}>
         <Text style={[styles.formTitle, { color: c.foreground }]}>New Tournament</Text>
         <Pressable onPress={onClose}>
@@ -452,6 +458,31 @@ function AddTournamentForm({
               style={[styles.gameToggleBtn, active && { backgroundColor: col }]}>
               <Text style={[styles.gameToggleText, { color: active ? '#fff' : c.mutedForeground }]}>
                 {g === 'FreeFire' ? 'Free Fire' : g}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* Status */}
+      <Text style={[styles.fLabel, { color: c.mutedForeground }]}>STATUS</Text>
+      <View style={styles.chipRow}>
+        {statusOptions.map((option) => {
+          const active = status === option.value;
+          return (
+            <Pressable
+              key={option.value}
+              onPress={() => setStatus(option.value)}
+              style={[
+                styles.chip,
+                {
+                  borderColor: active ? c.primary : c.border,
+                  backgroundColor: active ? 'rgba(255,107,0,0.15)' : 'transparent',
+                },
+              ]}
+            >
+              <Text style={[styles.chipText, { color: active ? c.primary : c.mutedForeground }]}>
+                {option.label}
               </Text>
             </Pressable>
           );
@@ -655,21 +686,18 @@ function AddTournamentForm({
         ))}
       </View>
 
-      </ScrollView>
-      <View style={[styles.addFormFooter, { backgroundColor: c.background, borderTopColor: c.border }]}>
-        <Pressable
-          accessibilityRole="button"
-          disabled={saving}
-          onPress={() => { void handleAdd(); }}
-          style={({ pressed }) => [
-            styles.addSubmitBtn,
-            { backgroundColor: c.primary, opacity: saving ? 0.6 : pressed ? 0.82 : 1 },
-          ]}
-        >
-          <Text style={styles.addSubmitText}>{saving ? 'Saving…' : 'Save Tournament'}</Text>
-        </Pressable>
-      </View>
-    </View>
+      <Pressable
+        accessibilityRole="button"
+        disabled={saving}
+        onPress={() => { void handleAdd(); }}
+        style={({ pressed }) => [
+          styles.addSubmitBtn,
+          { backgroundColor: c.primary, opacity: saving ? 0.6 : pressed ? 0.82 : 1 },
+        ]}
+      >
+        <Text style={styles.addSubmitText}>{saving ? 'Saving…' : 'Save Tournament'}</Text>
+      </Pressable>
+    </ScrollView>
   );
 }
 
@@ -998,12 +1026,8 @@ const styles = StyleSheet.create({
   completeMatchText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#F87171' },
 
   // Add form
-  addFormRoot: { flex: 1 },
-  formCard: { flex: 1, marginHorizontal: 16, borderRadius: 20, borderWidth: 1, padding: 20, marginBottom: 12 },
-  addFormContent: { paddingBottom: 12 },
-  addFormFooter: {
-    borderTopWidth: 1, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12,
-  },
+  formCard: { flex: 1, marginHorizontal: 16, borderRadius: 20, borderWidth: 1, marginBottom: 12 },
+  addFormContent: { padding: 20, paddingBottom: 100 },
   formHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   formTitle: { fontSize: 18, fontFamily: 'Inter_700Bold' },
   fLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8, marginBottom: 6, marginTop: 14 },
@@ -1028,7 +1052,7 @@ const styles = StyleSheet.create({
   prizeSectionSub: { fontSize: 11, fontFamily: 'Inter_400Regular' },
   rankPrizeRow: { flexDirection: 'row', gap: 8 },
   rankPrizeLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', marginBottom: 5, marginTop: 0 },
-  addSubmitBtn: { borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 0 },
+  addSubmitBtn: { borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 20 },
   // Slot form stepper
   slotFormRow: {
     flexDirection: 'row', alignItems: 'center', borderRadius: 12,

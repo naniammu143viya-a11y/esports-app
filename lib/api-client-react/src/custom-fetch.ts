@@ -337,11 +337,11 @@ export async function customFetch<T = unknown>(
 
   const headers = mergeHeaders(
     isRequest(input) ? input.headers : undefined,
+    headersInit,
     {
       "X-Requested-With": "XMLHttpRequest",
       "Content-Type": "application/json",
     },
-    headersInit,
   );
 
   if (

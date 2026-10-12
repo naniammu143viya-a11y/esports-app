@@ -1,22 +1,24 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Shared API for the esports tournament app.
 servers:
   - url: /api
-    description: Base API path
+    description: API base path
 tags:
   - name: health
-    description: Health operations
+  - name: auth
+  - name: tournaments
+  - name: payments
+  - name: wallet
+  - name: settings
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
-      summary: Health check
-      description: Returns server health status
+      summary: Check server health
       responses:
         "200":
           description: Healthy
@@ -24,7 +26,415 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/register:
+    post:
+      operationId: registerAccount
+      tags: [auth]
+      summary: Register a player account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Account created and signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+  /auth/login:
+    post:
+      operationId: loginAccount
+      tags: [auth]
+      summary: Sign in a player or admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Signed-in account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      security:
+        - bearerAuth: []
+      summary: Get the current account
+      responses:
+        "200":
+          description: Account profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+  /me/profile:
+    patch:
+      operationId: updateCurrentUserProfile
+      tags: [auth]
+      security:
+        - bearerAuth: []
+      summary: Update the current player's UPI ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileInput"
+      responses:
+        "200":
+          description: Updated player profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+  /tournaments:
+    get:
+      operationId: getTournaments
+      tags: [tournaments]
+      summary: List active and recently completed database tournaments
+      responses:
+        "200":
+          description: Database tournaments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TournamentList"
+    post:
+      operationId: createTournament
+      tags: [tournaments]
+      security:
+        - bearerAuth: []
+      summary: Create an upcoming tournament
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTournamentInput"
+      responses:
+        "201":
+          description: Created tournament
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tournament"
+  /tournaments/{tournamentId}:
+    patch:
+      operationId: updateTournament
+      tags: [tournaments]
+      security:
+        - bearerAuth: []
+      summary: Update tournament room details or player limit
+      parameters:
+        - $ref: "#/components/parameters/TournamentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTournamentInput"
+      responses:
+        "200":
+          description: Updated tournament
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tournament"
+  /tournaments/{tournamentId}/complete:
+    post:
+      operationId: completeTournament
+      tags: [tournaments]
+      security:
+        - bearerAuth: []
+      summary: End a tournament and start its one-hour retention period
+      parameters:
+        - $ref: "#/components/parameters/TournamentId"
+      responses:
+        "200":
+          description: Completed tournament
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tournament"
+  /tournaments/{tournamentId}/registrations:
+    get:
+      operationId: getTournamentRegistrations
+      tags: [tournaments]
+      security:
+        - bearerAuth: []
+      summary: List players registered for a tournament
+      parameters:
+        - $ref: "#/components/parameters/TournamentId"
+      responses:
+        "200":
+          description: Registered players with any recorded payout
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationList"
+  /tournaments/{tournamentId}/join:
+    post:
+      operationId: joinTournament
+      tags: [tournaments]
+      security:
+        - bearerAuth: []
+      summary: Join a free tournament
+      parameters:
+        - $ref: "#/components/parameters/TournamentId"
+      responses:
+        "201":
+          description: Registration created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Registration"
+  /tournaments/{tournamentId}/utr:
+    post:
+      operationId: submitTournamentUtr
+      tags: [payments]
+      security:
+        - bearerAuth: []
+      summary: Submit a 12-digit UPI transaction reference
+      parameters:
+        - $ref: "#/components/parameters/TournamentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitUtrInput"
+      responses:
+        "201":
+          description: Payment submitted for admin verification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+  /admin/payments:
+    get:
+      operationId: getPendingPayments
+      tags: [payments]
+      security:
+        - bearerAuth: []
+      summary: List payments awaiting admin verification
+      responses:
+        "200":
+          description: Pending payment submissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentList"
+  /admin/payments/{paymentId}/approve:
+    post:
+      operationId: approvePayment
+      tags: [payments]
+      security:
+        - bearerAuth: []
+      summary: Approve a payment and register its player
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Approved payment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+  /admin/payments/{paymentId}/reject:
+    post:
+      operationId: rejectPayment
+      tags: [payments]
+      security:
+        - bearerAuth: []
+      summary: Reject a payment submission
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Rejected payment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+  /tournaments/{tournamentId}/payouts:
+    post:
+      operationId: awardTournamentPayout
+      tags: [wallet]
+      security:
+        - bearerAuth: []
+      summary: Credit a registered winner's in-app wallet
+      parameters:
+        - $ref: "#/components/parameters/TournamentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AwardPayoutInput"
+      responses:
+        "201":
+          description: New payout credited (or existing payout returned without double-credit)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payout"
+  /me/matches:
+    get:
+      operationId: getMyMatches
+      tags: [tournaments]
+      security:
+        - bearerAuth: []
+      summary: List the current player's registered matches
+      responses:
+        "200":
+          description: Player registrations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationList"
+  /me/payments:
+    get:
+      operationId: getMyPayments
+      tags: [payments]
+      security:
+        - bearerAuth: []
+      summary: List the current player's submitted payments
+      responses:
+        "200":
+          description: Player payment submissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentList"
+  /me/wallet:
+    get:
+      operationId: getMyWallet
+      tags: [wallet]
+      security:
+        - bearerAuth: []
+      summary: Get the current player's wallet and prize history
+      responses:
+        "200":
+          description: Current balance and payout history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+  /me/withdrawals:
+    post:
+      operationId: requestWithdrawal
+      tags: [wallet]
+      security:
+        - bearerAuth: []
+      summary: Request a wallet withdrawal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WithdrawalInput"
+      responses:
+        "201":
+          description: Withdrawal request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Withdrawal"
+  /admin/withdrawals:
+    get:
+      operationId: getWithdrawals
+      tags: [wallet]
+      security:
+        - bearerAuth: []
+      summary: List wallet withdrawal requests
+      responses:
+        "200":
+          description: Withdrawal requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WithdrawalList"
+  /admin/withdrawals/{withdrawalId}/paid:
+    post:
+      operationId: markWithdrawalPaid
+      tags: [wallet]
+      security:
+        - bearerAuth: []
+      summary: Mark a withdrawal as paid
+      parameters:
+        - name: withdrawalId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated withdrawal request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Withdrawal"
+  /settings/public:
+    get:
+      operationId: getPublicSettings
+      tags: [settings]
+      summary: Get payment settings used by customers
+      responses:
+        "200":
+          description: Public payment settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicSettings"
+  /admin/settings:
+    put:
+      operationId: updateAdminSettings
+      tags: [settings]
+      security:
+        - bearerAuth: []
+      summary: Update the admin UPI ID used by payment QR codes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSettingsInput"
+      responses:
+        "200":
+          description: Updated payment settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicSettings"
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    TournamentId:
+      name: tournamentId
+      in: path
+      required: true
+      schema:
+        type: string
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +443,235 @@ components:
           type: string
       required:
         - status
-
+    GameType:
+      type: string
+      enum: [BGMI, FreeFire]
+    RankPrizes:
+      type: object
+      properties:
+        rank1: { type: integer }
+        rank2: { type: integer }
+        rank3: { type: integer }
+      required: [rank1, rank2, rank3]
+    PayoutBreakdown:
+      type: object
+      properties:
+        kills: { type: integer }
+        killPrize: { type: integer }
+        rank: { type: string }
+        rankPrize: { type: integer }
+      required: [kills, killPrize, rank, rankPrize]
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        username: { type: string }
+        mobile: { type: string }
+        gameId: { type: string }
+        gameType: { $ref: "#/components/schemas/GameType" }
+        isAdmin: { type: boolean }
+        upiId: { type: [string, "null"] }
+      required: [id, username, mobile, gameId, gameType, isAdmin, upiId]
+    AuthSession:
+      type: object
+      properties:
+        token: { type: string }
+        user: { $ref: "#/components/schemas/User" }
+      required: [token, user]
+    RegisterInput:
+      type: object
+      properties:
+        username: { type: string, minLength: 2, maxLength: 32 }
+        mobile: { type: string, pattern: "^[0-9]{10}$" }
+        gameId: { type: string, minLength: 1, maxLength: 64 }
+        gameType: { $ref: "#/components/schemas/GameType" }
+        password: { type: string, minLength: 6, maxLength: 256 }
+        upiId: { type: [string, "null"], maxLength: 128 }
+      required: [username, mobile, gameId, gameType, password]
+    LoginInput:
+      type: object
+      properties:
+        username: { type: string }
+        password: { type: string }
+      required: [username, password]
+    UpdateProfileInput:
+      type: object
+      properties:
+        upiId: { type: [string, "null"], maxLength: 128 }
+      required: [upiId]
+    Tournament:
+      type: object
+      properties:
+        id: { type: string }
+        game: { $ref: "#/components/schemas/GameType" }
+        name: { type: string }
+        map: { type: string }
+        entryFee: { type: integer }
+        prizePool: { type: integer }
+        status: { type: string, enum: [ongoing, upcoming, completed] }
+        teamSize: { type: integer, enum: [1, 2, 4] }
+        maxTeams: { type: integer }
+        registeredTeams: { type: integer }
+        date: { type: string }
+        time: { type: string }
+        roomId: { type: [string, "null"] }
+        password: { type: [string, "null"] }
+        perKillPrize: { type: integer }
+        rankPrizes: { $ref: "#/components/schemas/RankPrizes" }
+        completedAt: { type: [string, "null"], format: date-time }
+        winners:
+          type: array
+          items: { $ref: "#/components/schemas/Payout" }
+      required: [id, game, name, map, entryFee, prizePool, status, teamSize, maxTeams, registeredTeams, date, time, perKillPrize, rankPrizes, completedAt, winners]
+    TournamentList:
+      type: object
+      properties:
+        tournaments:
+          type: array
+          items: { $ref: "#/components/schemas/Tournament" }
+      required: [tournaments]
+    CreateTournamentInput:
+      type: object
+      properties:
+        game: { $ref: "#/components/schemas/GameType" }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        map: { type: string, minLength: 1, maxLength: 80 }
+        entryFee: { type: integer, minimum: 0 }
+        prizePool: { type: integer, minimum: 0 }
+        teamSize: { type: integer, enum: [1, 2, 4] }
+        maxTeams: { type: integer, minimum: 1, maximum: 10000 }
+        date: { type: string, pattern: "^\\d{4}-\\d{2}-\\d{2}$" }
+        time: { type: string, pattern: "^\\d{2}:\\d{2}$" }
+        perKillPrize: { type: integer, minimum: 0 }
+        rankPrizes: { $ref: "#/components/schemas/RankPrizes" }
+      required: [game, name, map, entryFee, prizePool, teamSize, maxTeams, date, time, perKillPrize, rankPrizes]
+    UpdateTournamentInput:
+      type: object
+      properties:
+        roomId: { type: string, maxLength: 120 }
+        password: { type: string, maxLength: 120 }
+        maxTeams: { type: integer, minimum: 1, maximum: 10000 }
+        status: { type: string, enum: [ongoing] }
+    PlayerInfo:
+      type: object
+      properties:
+        id: { type: string }
+        username: { type: string }
+        mobile: { type: string }
+        gameId: { type: string }
+        gameType: { $ref: "#/components/schemas/GameType" }
+      required: [id, username, mobile, gameId, gameType]
+    Registration:
+      type: object
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        tournamentId: { type: string }
+        username: { type: string }
+        mobile: { type: string }
+        gameId: { type: string }
+        gameType: { $ref: "#/components/schemas/GameType" }
+        paymentId: { type: string }
+        paidAt: { type: string, format: date-time }
+        amount: { type: integer }
+        payout:
+          anyOf:
+            - $ref: "#/components/schemas/Payout"
+            - type: "null"
+      required: [id, userId, tournamentId, username, mobile, gameId, gameType, paymentId, paidAt, amount, payout]
+    RegistrationList:
+      type: object
+      properties:
+        registrations:
+          type: array
+          items: { $ref: "#/components/schemas/Registration" }
+      required: [registrations]
+    Payment:
+      type: object
+      properties:
+        id: { type: string }
+        tournamentId: { type: string }
+        status: { type: string, enum: [PENDING, PAID, FREE, REJECTED] }
+        paymentId: { type: string }
+        paidAt: { type: string, format: date-time }
+        amount: { type: integer }
+        utr: { type: string }
+        submittedAt: { type: string, format: date-time }
+        verifiedAt: { type: [string, "null"], format: date-time }
+        player: { $ref: "#/components/schemas/PlayerInfo" }
+        tournamentName: { type: string }
+      required: [id, tournamentId, status, paymentId, paidAt, amount, utr, submittedAt, verifiedAt, player, tournamentName]
+    PaymentList:
+      type: object
+      properties:
+        payments:
+          type: array
+          items: { $ref: "#/components/schemas/Payment" }
+      required: [payments]
+    AwardPayoutInput:
+      type: object
+      properties:
+        userId: { type: string }
+        kills: { type: integer, minimum: 0, maximum: 1000 }
+        rank: { type: string, enum: ["1st", "2nd", "3rd", Qualifier, None] }
+      required: [userId, kills, rank]
+    Payout:
+      type: object
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        username: { type: string }
+        tournamentId: { type: string }
+        tournamentName: { type: string }
+        amount: { type: integer }
+        declaredAt: { type: string, format: date-time }
+        breakdown: { $ref: "#/components/schemas/PayoutBreakdown" }
+      required: [id, userId, username, tournamentId, tournamentName, amount, declaredAt, breakdown]
+    Wallet:
+      type: object
+      properties:
+        balance: { type: integer }
+        totalEarned: { type: integer }
+        earnings:
+          type: array
+          items: { $ref: "#/components/schemas/Payout" }
+      required: [balance, totalEarned, earnings]
+    WithdrawalInput:
+      type: object
+      properties:
+        amount: { type: integer, minimum: 1 }
+        upiId: { type: string, minLength: 3, maxLength: 128 }
+      required: [amount, upiId]
+    Withdrawal:
+      type: object
+      properties:
+        id: { type: string }
+        username: { type: string }
+        mobile: { type: string }
+        upiId: { type: string }
+        amount: { type: integer }
+        requestedAt: { type: string, format: date-time }
+        status: { type: string, enum: [PENDING, PAID] }
+      required: [id, username, mobile, upiId, amount, requestedAt, status]
+    WithdrawalList:
+      type: object
+      properties:
+        withdrawals:
+          type: array
+          items: { $ref: "#/components/schemas/Withdrawal" }
+      required: [withdrawals]
+    SubmitUtrInput:
+      type: object
+      properties:
+        utr: { type: string, pattern: "^\\d{12}$" }
+      required: [utr]
+    PublicSettings:
+      type: object
+      properties:
+        adminUpiId: { type: string }
+      required: [adminUpiId]
+    UpdateSettingsInput:
+      type: object
+      properties:
+        adminUpiId: { type: string, minLength: 3, maxLength: 128 }
+      required: [adminUpiId]

@@ -1,5 +1,31 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useContext, useMemo } from 'react';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  approvePayment as approvePaymentRequest,
+  awardTournamentPayout,
+  completeTournament as completeTournamentRequest,
+  createTournament as createTournamentRequest,
+  getGetMyMatchesQueryOptions,
+  getGetMyPaymentsQueryOptions,
+  getGetMyMatchesQueryKey,
+  getGetMyPaymentsQueryKey,
+  getGetPendingPaymentsQueryOptions,
+  getGetPendingPaymentsQueryKey,
+  getGetTournamentRegistrationsQueryKey,
+  getGetTournamentRegistrationsQueryOptions,
+  getGetTournamentsQueryKey,
+  getGetTournamentsQueryOptions,
+  getMyMatches as getMyMatchesRequest,
+  getMyPayments as getMyPaymentsRequest,
+  getPendingPayments as getPendingPaymentsRequest,
+  getTournaments as getTournamentsRequest,
+  joinTournament as joinTournamentRequest,
+  rejectPayment as rejectPaymentRequest,
+  submitTournamentUtr,
+  updateTournament as updateTournamentRequest,
+} from '@workspace/api-client-react';
+import type { Payout } from '@workspace/api-client-react';
+import { useAuth } from '@/context/AuthContext';
 
 export type GameType = 'BGMI' | 'FreeFire';
 export type TournamentStatus = 'ongoing' | 'upcoming' | 'completed';
@@ -15,7 +41,7 @@ export interface Tournament {
   game: GameType;
   name: string;
   map: string;
-  entryFee: number;           // 0 = FREE
+  entryFee: number;
   prizePool: number;
   status: TournamentStatus;
   teamSize: number;
@@ -23,14 +49,16 @@ export interface Tournament {
   registeredTeams: number;
   date: string;
   time: string;
-  roomId?: string;
-  password?: string;
-  // ── Prize structure ────────────────────────────────────────────────────────
-  perKillPrize: number;       // ₹ per kill
-  rankPrizes: RankPrizes;     // rank 1/2/3 prizes
+  roomId?: string | null;
+  password?: string | null;
+  perKillPrize: number;
+  rankPrizes: RankPrizes;
+  completedAt?: string | null;
+  winners?: Payout[];
 }
 
 export interface Payment {
+  id: string;
   tournamentId: string;
   status: 'PENDING' | 'PAID' | 'FREE' | 'REJECTED';
   paymentId: string;
@@ -38,12 +66,14 @@ export interface Payment {
   amount: number;
   utr?: string;
   submittedAt?: string;
-  verifiedAt?: string;
+  verifiedAt?: string | null;
   player?: PlayerInfo;
+  tournamentName?: string;
 }
 
-/** Player registration record (paid OR free join) */
 export interface Registration {
+  id: string;
+  userId: string;
   tournamentId: string;
   username: string;
   mobile: string;
@@ -51,10 +81,10 @@ export interface Registration {
   gameType: GameType;
   paymentId: string;
   paidAt: string;
-  amount: number;             // 0 for free tournaments
+  amount: number;
+  payout?: Payout | null;
 }
 
-/** Minimal player info required when joining */
 export interface PlayerInfo {
   username: string;
   mobile: string;
@@ -67,303 +97,175 @@ interface TournamentContextType {
   joinedIds: string[];
   payments: Record<string, Payment>;
   registrations: Registration[];
-  /** Join a free (₹0) tournament — creates a Registration for the admin player list */
+  verificationPayments: Payment[];
+  refresh: () => Promise<void>;
   joinFreeWithPlayer: (id: string, player: PlayerInfo) => Promise<void>;
-  /** Legacy alias (no registration record) */
   joinTournament: (id: string) => void;
-  /** Confirm payment for a paid tournament. Returns generated paymentId. */
   confirmPayment: (tournamentId: string, amount: number, player: PlayerInfo) => Promise<string>;
   submitPaymentUtr: (tournamentId: string, amount: number, player: PlayerInfo, utr: string) => Promise<string>;
-  approvePayment: (tournamentId: string) => Promise<void>;
-  rejectPayment: (tournamentId: string) => Promise<void>;
+  approvePayment: (paymentId: string) => Promise<void>;
+  rejectPayment: (paymentId: string) => Promise<void>;
   getRegistrations: (tournamentId: string) => Registration[];
-  updateRoomDetails: (id: string, roomId: string, password: string) => void;
-  /** Admin: change the max player slots for a tournament */
-  updateTournamentSlots: (id: string, newMax: number) => void;
-  addTournament: (t: Omit<Tournament, 'id' | 'registeredTeams'>) => void;
+  updateRoomDetails: (id: string, roomId: string, password: string) => Promise<void>;
+  updateTournamentSlots: (id: string, newMax: number) => Promise<void>;
+  startTournament: (id: string) => Promise<void>;
+  addTournament: (t: Omit<Tournament, 'id' | 'registeredTeams' | 'winners' | 'completedAt'>) => Promise<void>;
+  completeTournament: (id: string) => Promise<void>;
+  awardWinner: (tournamentId: string, userId: string, kills: number, rank: string) => Promise<Payout>;
 }
 
 const TournamentContext = createContext<TournamentContextType | null>(null);
-
-const TOURNAMENTS_KEY  = '@bgmi_tournaments';
-const JOINED_KEY       = '@bgmi_joined';
-const PAYMENTS_KEY     = '@bgmi_payments';
-const REGISTRATIONS_KEY = '@bgmi_registrations';
-
-const DEFAULT_RANK_PRIZES: RankPrizes = { rank1: 0, rank2: 0, rank3: 0 };
-
-const MOCK_TOURNAMENTS: Tournament[] = [
-  {
-    id: '1', game: 'BGMI', name: 'Battleground Masters', map: 'Erangel',
-    entryFee: 50, prizePool: 5000, status: 'ongoing', teamSize: 4,
-    maxTeams: 25, registeredTeams: 18, date: '2026-07-14', time: '20:00',
-    perKillPrize: 5, rankPrizes: { rank1: 100, rank2: 60, rank3: 30 },
-  },
-  {
-    id: '2', game: 'FreeFire', name: 'Booyah Cup', map: 'Bermuda',
-    entryFee: 30, prizePool: 3000, status: 'ongoing', teamSize: 4,
-    maxTeams: 20, registeredTeams: 15, date: '2026-07-14', time: '21:00',
-    perKillPrize: 3, rankPrizes: { rank1: 75, rank2: 40, rank3: 20 },
-  },
-  {
-    id: '3', game: 'BGMI', name: 'Pro League Season 5', map: 'Miramar',
-    entryFee: 100, prizePool: 10000, status: 'upcoming', teamSize: 4,
-    maxTeams: 30, registeredTeams: 8, date: '2026-07-16', time: '18:00',
-    perKillPrize: 10, rankPrizes: { rank1: 300, rank2: 150, rank3: 75 },
-  },
-  {
-    id: '4', game: 'FreeFire', name: 'Clash Squad Champions', map: 'Purgatory',
-    entryFee: 20, prizePool: 2000, status: 'upcoming', teamSize: 4,
-    maxTeams: 16, registeredTeams: 3, date: '2026-07-17', time: '19:00',
-    perKillPrize: 2, rankPrizes: { rank1: 50, rank2: 25, rank3: 10 },
-  },
-  {
-    id: '5', game: 'BGMI', name: 'Weekend Warriors', map: 'Vikendi',
-    entryFee: 75, prizePool: 7500, status: 'upcoming', teamSize: 4,
-    maxTeams: 25, registeredTeams: 20, date: '2026-07-18', time: '20:30',
-    perKillPrize: 7, rankPrizes: { rank1: 200, rank2: 100, rank3: 50 },
-  },
-  {
-    id: '6', game: 'FreeFire', name: 'Grand Open 2026', map: 'Kalahari',
-    entryFee: 0, prizePool: 1000, status: 'completed', teamSize: 4,
-    maxTeams: 20, registeredTeams: 20, date: '2026-07-12', time: '18:00',
-    roomId: 'GGOP2026', password: 'ffire123',
-    perKillPrize: 0, rankPrizes: DEFAULT_RANK_PRIZES,
-  },
-  {
-    id: '7', game: 'BGMI', name: 'Chicken Dinner Classic', map: 'Sanhok',
-    entryFee: 0, prizePool: 500, status: 'upcoming', teamSize: 4,
-    maxTeams: 20, registeredTeams: 6, date: '2026-07-20', time: '17:00',
-    perKillPrize: 0, rankPrizes: DEFAULT_RANK_PRIZES,
-  },
-];
+const POLL_MS = 4000;
 
 export function TournamentProvider({ children }: { children: React.ReactNode }) {
-  const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [freeJoins, setFreeJoins] = useState<string[]>([]);
-  const [payments, setPayments] = useState<Record<string, Payment>>({});
-  const [registrations, setRegistrations] = useState<Registration[]>([]);
-
-  const joinedIds: string[] = [
-    ...freeJoins,
-    ...Object.entries(payments)
-      .filter(([, payment]) => payment.status !== 'REJECTED')
-      .map(([tournamentId]) => tournamentId),
-  ];
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const [rawT, rawJ, rawP, rawR] = await Promise.all([
-          AsyncStorage.getItem(TOURNAMENTS_KEY),
-          AsyncStorage.getItem(JOINED_KEY),
-          AsyncStorage.getItem(PAYMENTS_KEY),
-          AsyncStorage.getItem(REGISTRATIONS_KEY),
-        ]);
-        // Migrate old tournaments that lack prize fields
-        const parsed: Tournament[] = rawT
-          ? (JSON.parse(rawT) as any[]).map((t) => ({
-              perKillPrize: 0,
-              rankPrizes: DEFAULT_RANK_PRIZES,
-              ...t,
-            }))
-          : MOCK_TOURNAMENTS;
-        setTournaments(parsed);
-        setFreeJoins(rawJ ? JSON.parse(rawJ) : []);
-        setPayments(rawP ? JSON.parse(rawP) : {});
-        setRegistrations(rawR ? JSON.parse(rawR) : []);
-      } catch {
-        setTournaments(MOCK_TOURNAMENTS);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const tournamentsQuery = useQuery({
+    ...getGetTournamentsQueryOptions({
+      query: { queryKey: getGetTournamentsQueryKey(), refetchInterval: POLL_MS },
+    }),
+  });
+  const matchesQuery = useQuery({
+    ...getGetMyMatchesQueryOptions({
+      query: { queryKey: getGetMyMatchesQueryKey(), enabled: !!user, refetchInterval: POLL_MS },
+    }),
+  });
+  const playerPaymentsQuery = useQuery({
+    ...getGetMyPaymentsQueryOptions({
+      query: { queryKey: getGetMyPaymentsQueryKey(), enabled: !!user, refetchInterval: POLL_MS },
+    }),
+  });
+  const verificationQuery = useQuery({
+    ...getGetPendingPaymentsQueryOptions({
+      query: { queryKey: getGetPendingPaymentsQueryKey(), enabled: user?.isAdmin === true, refetchInterval: POLL_MS },
+    }),
+  });
+  const tournaments = (tournamentsQuery.data?.tournaments ?? []) as Tournament[];
+  const adminRegistrationQueries = useQueries({
+    queries: tournaments.map((tournament) =>
+      getGetTournamentRegistrationsQueryOptions(tournament.id, {
+        query: { queryKey: getGetTournamentRegistrationsQueryKey(tournament.id), enabled: user?.isAdmin === true, refetchInterval: POLL_MS },
+      }),
+    ),
+  });
+  const registrations = useMemo(
+    () => user?.isAdmin
+      ? adminRegistrationQueries.flatMap((query) => (query.data?.registrations ?? []) as Registration[])
+      : (matchesQuery.data?.registrations ?? []) as Registration[],
+    [user?.isAdmin, adminRegistrationQueries, matchesQuery.data],
+  );
+  const payments = useMemo(() => {
+    const result: Record<string, Payment> = {};
+    for (const payment of playerPaymentsQuery.data?.payments ?? []) {
+      const current = result[payment.tournamentId];
+      if (!current || (payment.submittedAt ?? payment.paidAt) > (current.submittedAt ?? current.paidAt)) {
+        result[payment.tournamentId] = payment as Payment;
       }
-    })();
-  }, []);
+    }
+    return result;
+  }, [playerPaymentsQuery.data]);
+  const verificationPayments = (verificationQuery.data?.payments ?? []) as Payment[];
+  const joinedIds = useMemo(
+    () => [...new Set([
+      ...registrations.map((registration) => registration.tournamentId),
+      ...Object.values(payments)
+        .filter((payment) => payment.status === 'PENDING' || payment.status === 'PAID')
+        .map((payment) => payment.tournamentId),
+    ])],
+    [registrations, payments],
+  );
 
-  async function persistTournaments(updated: Tournament[]) {
-    setTournaments(updated);
-    await AsyncStorage.setItem(TOURNAMENTS_KEY, JSON.stringify(updated));
+  async function refresh() {
+    await queryClient.invalidateQueries();
   }
 
-  // ─── Join free tournament (creates Registration so admin can see players) ──
-  async function joinFreeWithPlayer(id: string, player: PlayerInfo): Promise<void> {
-    if (joinedIds.includes(id)) return;
-
-    const paymentId = `FREE${Date.now().toString(36).toUpperCase()}`;
-    const now = new Date().toISOString();
-
-    const payment: Payment = {
-      tournamentId: id, status: 'FREE', paymentId, paidAt: now, amount: 0,
-    };
-
-    const registration: Registration = {
-      tournamentId: id,
-      username: player.username,
-      mobile: player.mobile,
-      gameId: player.gameId,
-      gameType: player.gameType,
-      paymentId,
-      paidAt: now,
-      amount: 0,
-    };
-
-    const newPayments = { ...payments, [id]: payment };
-    const newRegistrations = [...registrations, registration];
-    const updated = tournaments.map((t) =>
-      t.id === id ? { ...t, registeredTeams: Math.min(t.registeredTeams + 1, t.maxTeams) } : t,
-    );
-
-    setPayments(newPayments);
-    setRegistrations(newRegistrations);
-    await Promise.all([
-      AsyncStorage.setItem(PAYMENTS_KEY, JSON.stringify(newPayments)),
-      AsyncStorage.setItem(REGISTRATIONS_KEY, JSON.stringify(newRegistrations)),
-      persistTournaments(updated),
-    ]);
+  async function joinFreeWithPlayer(id: string, _player: PlayerInfo) {
+    await joinTournamentRequest(id);
+    await refresh();
   }
 
-  // ─── Legacy free join (no player info) ────────────────────────────────────
   function joinTournament(id: string) {
-    if (joinedIds.includes(id)) return;
-    const updated = tournaments.map((t) =>
-      t.id === id ? { ...t, registeredTeams: Math.min(t.registeredTeams + 1, t.maxTeams) } : t,
-    );
-    const newFree = [...freeJoins, id];
-    setFreeJoins(newFree);
-    persistTournaments(updated);
-    AsyncStorage.setItem(JOINED_KEY, JSON.stringify(newFree));
+    void joinFreeWithPlayer(id, { username: '', mobile: '', gameId: '', gameType: 'BGMI' });
   }
 
-  // ─── Confirm paid payment ─────────────────────────────────────────────────
-  async function confirmPayment(tournamentId: string, amount: number, player: PlayerInfo): Promise<string> {
-    const paymentId = `PAY${Date.now().toString(36).toUpperCase()}`;
-    const now = new Date().toISOString();
-
-    const payment: Payment = { tournamentId, status: 'PAID', paymentId, paidAt: now, amount };
-    const registration: Registration = {
-      tournamentId, username: player.username, mobile: player.mobile,
-      gameId: player.gameId, gameType: player.gameType, paymentId, paidAt: now, amount,
-    };
-
-    const newPayments = { ...payments, [tournamentId]: payment };
-    const newRegistrations = [...registrations, registration];
-    const updated = tournaments.map((t) =>
-      t.id === tournamentId ? { ...t, registeredTeams: Math.min(t.registeredTeams + 1, t.maxTeams) } : t,
-    );
-
-    setPayments(newPayments);
-    setRegistrations(newRegistrations);
-    await Promise.all([
-      AsyncStorage.setItem(PAYMENTS_KEY, JSON.stringify(newPayments)),
-      AsyncStorage.setItem(REGISTRATIONS_KEY, JSON.stringify(newRegistrations)),
-      persistTournaments(updated),
-    ]);
-    return paymentId;
+  async function confirmPayment(_tournamentId: string, _amount: number, _player: PlayerInfo): Promise<string> {
+    throw new Error('Submit the 12-digit UTR to request payment verification.');
   }
 
-  async function submitPaymentUtr(
-    tournamentId: string,
-    amount: number,
-    player: PlayerInfo,
-    utr: string,
-  ): Promise<string> {
-    if (!/^\d{12}$/.test(utr)) throw new Error('Enter a valid 12-digit UTR.');
-    if (Object.values(payments).some((payment) => payment.status !== 'REJECTED' && payment.utr === utr)) {
-      throw new Error('This UTR has already been submitted.');
-    }
-    const existing = payments[tournamentId];
-    if (existing && existing.status !== 'REJECTED') {
-      throw new Error('A payment for this tournament is already submitted.');
-    }
-
-    const submittedAt = new Date().toISOString();
-    const paymentId = `PAY${Date.now().toString(36).toUpperCase()}`;
-    const pendingPayment: Payment = {
-      tournamentId,
-      status: 'PENDING',
-      paymentId,
-      paidAt: submittedAt,
-      submittedAt,
-      amount,
-      utr,
-      player,
-    };
-    const updatedPayments = { ...payments, [tournamentId]: pendingPayment };
-    setPayments(updatedPayments);
-    await AsyncStorage.setItem(PAYMENTS_KEY, JSON.stringify(updatedPayments));
-    return paymentId;
+  async function submitUtr(tournamentId: string, _amount: number, _player: PlayerInfo, utr: string) {
+    const payment = await submitTournamentUtr(tournamentId, { utr: utr.trim() });
+    await refresh();
+    return payment.paymentId;
   }
 
-  async function approvePayment(tournamentId: string): Promise<void> {
-    const payment = payments[tournamentId];
-    if (!payment || payment.status !== 'PENDING' || !payment.player) {
-      throw new Error('This payment is no longer pending verification.');
-    }
-    const approved: Payment = { ...payment, status: 'PAID', verifiedAt: new Date().toISOString() };
-    const updatedPayments = { ...payments, [tournamentId]: approved };
-    const registration: Registration = {
-      tournamentId,
-      ...payment.player,
-      paymentId: payment.paymentId,
-      paidAt: approved.verifiedAt!,
-      amount: payment.amount,
-    };
-    const updatedRegistrations = [...registrations, registration];
-    const updatedTournaments = tournaments.map((t) =>
-      t.id === tournamentId ? { ...t, registeredTeams: Math.min(t.registeredTeams + 1, t.maxTeams) } : t,
-    );
-
-    setPayments(updatedPayments);
-    setRegistrations(updatedRegistrations);
-    await Promise.all([
-      AsyncStorage.setItem(PAYMENTS_KEY, JSON.stringify(updatedPayments)),
-      AsyncStorage.setItem(REGISTRATIONS_KEY, JSON.stringify(updatedRegistrations)),
-      persistTournaments(updatedTournaments),
-    ]);
+  async function approve(paymentId: string) {
+    await approvePaymentRequest(paymentId);
+    await refresh();
   }
 
-  async function rejectPayment(tournamentId: string): Promise<void> {
-    const payment = payments[tournamentId];
-    if (!payment || payment.status !== 'PENDING') return;
-    const updatedPayments = {
-      ...payments,
-      [tournamentId]: { ...payment, status: 'REJECTED' as const, verifiedAt: new Date().toISOString() },
-    };
-    setPayments(updatedPayments);
-    await AsyncStorage.setItem(PAYMENTS_KEY, JSON.stringify(updatedPayments));
+  async function reject(paymentId: string) {
+    await rejectPaymentRequest(paymentId);
+    await refresh();
   }
 
-  function getRegistrations(tournamentId: string): Registration[] {
-    return registrations.filter((r) => r.tournamentId === tournamentId);
+  function getRegistrations(tournamentId: string) {
+    return registrations.filter((registration) => registration.tournamentId === tournamentId);
   }
 
-  function updateRoomDetails(id: string, roomId: string, password: string) {
-    persistTournaments(tournaments.map((t) => (t.id === id ? { ...t, roomId, password } : t)));
+  async function updateRoomDetails(id: string, roomId: string, password: string) {
+    await updateTournamentRequest(id, { roomId, password });
+    await refresh();
   }
 
-  // ─── Admin: update player slot limit ─────────────────────────────────────
-  function updateTournamentSlots(id: string, newMax: number) {
-    const clamped = Math.max(newMax, 1);
-    persistTournaments(tournaments.map((t) => (t.id === id ? { ...t, maxTeams: clamped } : t)));
+  async function updateTournamentSlots(id: string, newMax: number) {
+    await updateTournamentRequest(id, { maxTeams: newMax });
+    await refresh();
   }
 
-  function addTournament(t: Omit<Tournament, 'id' | 'registeredTeams'>) {
-    const newT: Tournament = {
-      ...t,
-      status: 'upcoming',
-      id: Date.now().toString() + Math.random().toString(36).substring(2, 7),
-      registeredTeams: 0,
-    };
-    persistTournaments([newT, ...tournaments]);
+  async function startMatch(id: string) {
+    await updateTournamentRequest(id, { status: 'ongoing' });
+    await refresh();
+  }
+
+  async function addTournament(tournament: Omit<Tournament, 'id' | 'registeredTeams' | 'winners' | 'completedAt'>) {
+    const { status: _status, ...input } = tournament;
+    await createTournamentRequest({ ...input, teamSize: input.teamSize as 1 | 2 | 4 });
+    await refresh();
+  }
+
+  async function completeMatch(id: string) {
+    await completeTournamentRequest(id);
+    await refresh();
+  }
+
+  async function awardWinner(tournamentId: string, userId: string, kills: number, rank: string) {
+    const payout = await awardTournamentPayout(tournamentId, { userId, kills, rank: rank as '1st' | '2nd' | '3rd' | 'Qualifier' | 'None' });
+    await refresh();
+    return payout;
   }
 
   return (
-    <TournamentContext.Provider
-      value={{
-        tournaments, joinedIds, payments, registrations,
-        joinFreeWithPlayer, joinTournament, confirmPayment, submitPaymentUtr,
-        approvePayment, rejectPayment,
-        getRegistrations, updateRoomDetails, updateTournamentSlots, addTournament,
-      }}
-    >
+    <TournamentContext.Provider value={{
+      tournaments,
+      joinedIds,
+      payments,
+      registrations,
+      verificationPayments,
+      refresh,
+      joinFreeWithPlayer,
+      joinTournament,
+      confirmPayment,
+      submitPaymentUtr: submitUtr,
+      approvePayment: approve,
+      rejectPayment: reject,
+      getRegistrations,
+      updateRoomDetails,
+      updateTournamentSlots,
+      startTournament: startMatch,
+      addTournament,
+      completeTournament: completeMatch,
+      awardWinner,
+    }}>
       {children}
     </TournamentContext.Provider>
   );

@@ -136,11 +136,14 @@ function RoomDetailsBox({
 function MatchCard({
   tournament,
   isPaid,
+  userId,
 }: {
   tournament: Tournament;
   isPaid: boolean;
+  userId?: string;
 }) {
   const c = useColors();
+  const winnerPayout = tournament.winners?.find((payout) => payout.userId === userId);
   const statusColor =
     tournament.status === 'ongoing'
       ? '#22C55E'
@@ -188,6 +191,16 @@ function MatchCard({
       </View>
 
       <Text style={[styles.tourneyName, { color: c.foreground }]}>{tournament.name}</Text>
+      <View style={styles.matchBadges}>
+        <Text style={[styles.modeBadge, { color: c.primary }]}>
+          {tournament.teamSize === 1 ? 'SOLO' : tournament.teamSize === 2 ? 'DUO' : `SQUAD ${tournament.teamSize}V${tournament.teamSize}`}
+        </Text>
+        {winnerPayout && (
+          <Text style={styles.winnerBadge}>
+            PRIZE CREDITED · ₹{winnerPayout.amount.toLocaleString()} · {winnerPayout.breakdown.rank}
+          </Text>
+        )}
+      </View>
 
       <View style={styles.infoRow}>
         <View style={styles.infoItem}>
@@ -249,7 +262,7 @@ export default function MyMatchesScreen() {
    */
   function isPaidFor(tournament: Tournament): boolean {
     if (tournament.entryFee === 0) return true;
-    return !!payments[tournament.id];
+    return payments[tournament.id]?.status === 'PAID';
   }
 
   return (
@@ -269,7 +282,7 @@ export default function MyMatchesScreen() {
         data={joined}
         keyExtractor={(t) => t.id}
         renderItem={({ item }) => (
-          <MatchCard tournament={item} isPaid={isPaidFor(item)} />
+          <MatchCard tournament={item} isPaid={isPaidFor(item)} userId={user?.id} />
         )}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -336,6 +349,17 @@ const styles = StyleSheet.create({
   },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   tourneyName: { fontSize: 17, fontFamily: 'Inter_700Bold', marginBottom: 8 },
+  matchBadges: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: -3, marginBottom: 9 },
+  modeBadge: {
+    overflow: 'hidden', backgroundColor: 'rgba(255,107,0,0.12)',
+    borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4,
+    fontSize: 10, fontFamily: 'Inter_700Bold', letterSpacing: 0.35,
+  },
+  winnerBadge: {
+    overflow: 'hidden', backgroundColor: 'rgba(34,197,94,0.12)', color: '#22C55E',
+    borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4,
+    fontSize: 10, fontFamily: 'Inter_700Bold',
+  },
   infoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 14 },
   infoItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   infoText: { fontSize: 12, fontFamily: 'Inter_400Regular' },

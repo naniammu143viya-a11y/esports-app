@@ -33,7 +33,7 @@ export default function LobbyScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
-  const { tournaments, joinedIds, payments, joinFreeWithPlayer } = useTournaments();
+  const { tournaments, joinedIds, payments, joinFreeWithPlayer, refresh } = useTournaments();
   const router = useRouter();
 
   const [gameFilter, setGameFilter] = useState<GameFilter>('All');
@@ -52,9 +52,13 @@ export default function LobbyScreen() {
     router.replace('/login');
   }
 
-  function handleRefresh() {
+  async function handleRefresh() {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
+    try {
+      await refresh();
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   /**

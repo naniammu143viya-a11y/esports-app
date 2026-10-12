@@ -128,13 +128,13 @@ function PaymentVerificationCard({
       </Text>
       <View style={styles.verificationActions}>
         <Pressable
-          onPress={() => onReject(payment.tournamentId)}
+          onPress={() => onReject(payment.id)}
           style={[styles.verifyButton, { backgroundColor: c.muted }]}
         >
           <Text style={[styles.verifyButtonText, { color: c.mutedForeground }]}>Reject</Text>
         </Pressable>
         <Pressable
-          onPress={() => onApprove(payment.tournamentId)}
+          onPress={() => onApprove(payment.id)}
           style={[styles.verifyButton, { backgroundColor: '#22C55E' }]}
         >
           <Text style={[styles.verifyButtonText, { color: '#fff' }]}>Approve payment</Text>
@@ -150,11 +150,15 @@ function RoomEditorCard({
   registrationCount,
   onSave,
   onViewPlayers,
+  onStart,
+  onComplete,
 }: {
   tournament: Tournament;
   registrationCount: number;
-  onSave: (id: string, roomId: string, pw: string) => void;
+  onSave: (id: string, roomId: string, pw: string) => Promise<void>;
   onViewPlayers: (t: Tournament) => void;
+  onStart: (id: string) => Promise<void>;
+  onComplete: (id: string) => Promise<void>;
 }) {
   const c = useColors();
   const { updateTournamentSlots } = useTournaments();
@@ -163,18 +167,25 @@ function RoomEditorCard({
   const [saved, setSaved] = useState(false);
   const [slots, setSlots] = useState(tournament.maxTeams);
 
-  function handleSave() {
+  async function handleSave() {
     if (!roomId.trim()) { Alert.alert('Error', 'Room ID cannot be empty'); return; }
-    onSave(tournament.id, roomId.trim(), password.trim());
-    setSaved(true);
-    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setTimeout(() => setSaved(false), 2000);
+    try {
+      await onSave(tournament.id, roomId.trim(), password.trim());
+      setSaved(true);
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (error) {
+      Alert.alert('Unable to save room details', error instanceof Error ? error.message : 'Please try again.');
+    }
   }
 
   function changeSlots(delta: number) {
     const next = Math.max(tournament.registeredTeams, slots + delta);
     setSlots(next);
-    updateTournamentSlots(tournament.id, next);
+    void updateTournamentSlots(tournament.id, next).catch((error) => {
+      setSlots(tournament.maxTeams);
+      Alert.alert('Unable to update slots', error instanceof Error ? error.message : 'Please try again.');
+    });
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }
 
@@ -211,7 +222,8 @@ function RoomEditorCard({
         {tournament.name}
       </Text>
       <Text style={[styles.roomCardMeta, { color: c.mutedForeground }]}>
-        {tournament.map} · {tournament.entryFee > 0 ? `₹${tournament.entryFee} entry` : 'Free entry'}
+        {tournament.map} · {tournament.teamSize === 1 ? 'Solo' : tournament.teamSize === 2 ? 'Duo' : `Squad ${tournament.teamSize}v${tournament.teamSize}`}
+        {' · '}{tournament.entryFee > 0 ? `₹${tournament.entryFee} entry` : 'Free entry'}
       </Text>
 
       {/* Slot manager */}
@@ -303,7 +315,7 @@ function RoomEditorCard({
         />
       </View>
       <Pressable
-        onPress={handleSave}
+          onPress={() => { void handleSave(); }}
         style={({ pressed }) => [
           styles.saveBtn,
           {
@@ -317,6 +329,36 @@ function RoomEditorCard({
           {saved ? 'Saved!' : 'Save Room Details'}
         </Text>
       </Pressable>
+      {tournament.status !== 'completed' && (
+        <Pressable
+          onPress={() => Alert.alert(
+            tournament.status === 'upcoming' ? 'Start this match?' : 'End this match?',
+            tournament.status === 'upcoming'
+              ? 'This will move the tournament to the Live tab for customers.'
+              : 'This enables winner payouts and starts the one-hour lobby removal period.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: tournament.status === 'upcoming' ? 'Start match' : 'End match',
+                style: tournament.status === 'upcoming' ? 'default' : 'destructive',
+                onPress: () => {
+                  void (tournament.status === 'upcoming' ? onStart(tournament.id) : onComplete(tournament.id));
+                },
+              },
+            ],
+          )}
+          style={({ pressed }) => [styles.completeMatchBtn, { opacity: pressed ? 0.75 : 1 }]}
+        >
+          <Ionicons
+            name={tournament.status === 'upcoming' ? 'play-circle-outline' : 'stop-circle-outline'}
+            size={15}
+            color={tournament.status === 'upcoming' ? '#22C55E' : '#F87171'}
+          />
+          <Text style={[styles.completeMatchText, { color: tournament.status === 'upcoming' ? '#22C55E' : '#F87171' }]}>
+            {tournament.status === 'upcoming' ? 'Start Match' : 'Mark Match Complete'}
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -324,7 +366,13 @@ function RoomEditorCard({
 // ─── Add Tournament Form ──────────────────────────────────────────────────────
 type EntryType = 'FREE' | 'PAID';
 
-function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onClose: () => void }) {
+function AddTournamentForm({
+  onAdd,
+  onClose,
+}: {
+  onAdd: (data: Omit<Tournament, 'id' | 'registeredTeams' | 'winners' | 'completedAt'>) => Promise<void>;
+  onClose: () => void;
+}) {
   const c = useColors();
   const [game, setGame] = useState<GameType>('BGMI');
   const [teamSize, setTeamSize] = useState<1 | 2 | 4>(4);
@@ -341,40 +389,51 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
   const [rank1Prize, setRank1Prize] = useState('');
   const [rank2Prize, setRank2Prize] = useState('');
   const [rank3Prize, setRank3Prize] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  function handleAdd() {
+  async function handleAdd() {
     if (!name.trim() || !map.trim() || !date.trim() || !time.trim()) {
       Alert.alert('Error', 'Please fill Name, Map, Date and Time');
       return;
     }
-    onAdd({
-      game,
-      name: name.trim(),
-      map: map.trim(),
-      entryFee: entryType === 'FREE' ? 0 : (parseInt(entryFee, 10) || 0),
-      prizePool: parseInt(prizePool, 10) || 0,
-      status: 'upcoming',
-      teamSize,
-      maxTeams: maxPlayers,
-      date: date.trim(),
-      time: time.trim(),
-      perKillPrize: parseInt(perKillPrize, 10) || 0,
-      rankPrizes: {
-        rank1: parseInt(rank1Prize, 10) || 0,
-        rank2: parseInt(rank2Prize, 10) || 0,
-        rank3: parseInt(rank3Prize, 10) || 0,
-      },
-    });
-    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onClose();
+    setSaving(true);
+    try {
+      await onAdd({
+        game,
+        name: name.trim(),
+        map: map.trim(),
+        entryFee: entryType === 'FREE' ? 0 : (parseInt(entryFee, 10) || 0),
+        prizePool: parseInt(prizePool, 10) || 0,
+        status: 'upcoming',
+        teamSize,
+        maxTeams: maxPlayers,
+        date: date.trim(),
+        time: time.trim(),
+        perKillPrize: parseInt(perKillPrize, 10) || 0,
+        rankPrizes: {
+          rank1: parseInt(rank1Prize, 10) || 0,
+          rank2: parseInt(rank2Prize, 10) || 0,
+          rank3: parseInt(rank3Prize, 10) || 0,
+        },
+      });
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Tournament saved', 'The upcoming tournament is now available in the Lobby.');
+      onClose();
+    } catch (error) {
+      Alert.alert('Unable to save tournament', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
-    <ScrollView
-      style={[styles.formCard, { backgroundColor: c.card, borderColor: c.border }]}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={styles.addFormRoot}>
+      <ScrollView
+        style={[styles.formCard, { backgroundColor: c.card, borderColor: c.border }]}
+        contentContainerStyle={styles.addFormContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
       <View style={styles.formHeader}>
         <Text style={[styles.formTitle, { color: c.foreground }]}>New Tournament</Text>
         <Pressable onPress={onClose}>
@@ -596,15 +655,21 @@ function AddTournamentForm({ onAdd, onClose }: { onAdd: (data: any) => void; onC
         ))}
       </View>
 
-      <Pressable
-        onPress={handleAdd}
-        style={({ pressed }) => [styles.addSubmitBtn, { backgroundColor: c.primary, opacity: pressed ? 0.8 : 1 }]}
-      >
-        <Text style={styles.addSubmitText}>Create Tournament</Text>
-      </Pressable>
-
-      <View style={{ height: 30 }} />
-    </ScrollView>
+      </ScrollView>
+      <View style={[styles.addFormFooter, { backgroundColor: c.background, borderTopColor: c.border }]}>
+        <Pressable
+          accessibilityRole="button"
+          disabled={saving}
+          onPress={() => { void handleAdd(); }}
+          style={({ pressed }) => [
+            styles.addSubmitBtn,
+            { backgroundColor: c.primary, opacity: saving ? 0.6 : pressed ? 0.82 : 1 },
+          ]}
+        >
+          <Text style={styles.addSubmitText}>{saving ? 'Saving…' : 'Save Tournament'}</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -664,8 +729,8 @@ export default function AdminScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const {
-    tournaments, payments, updateRoomDetails, updateTournamentSlots, addTournament,
-    getRegistrations, approvePayment, rejectPayment,
+    tournaments, verificationPayments, updateRoomDetails, updateTournamentSlots, addTournament,
+    getRegistrations, approvePayment, rejectPayment, startTournament, completeTournament,
   } = useTournaments();
   const { withdrawalRequests, markWithdrawalPaid } = useWallet();
   const [showAddForm, setShowAddForm] = useState(false);
@@ -685,7 +750,7 @@ export default function AdminScreen() {
 
   const pendingWithdrawals = withdrawalRequests.filter((r) => r.status === 'PENDING');
   const paidWithdrawals = withdrawalRequests.filter((r) => r.status === 'PAID');
-  const pendingPayments = Object.values(payments).filter((p) => p.status === 'PENDING');
+  const pendingPayments = verificationPayments;
 
   async function handleMarkPaid(requestId: string) {
     await markWithdrawalPaid(requestId);
@@ -702,8 +767,30 @@ export default function AdminScreen() {
   }
 
   async function handleRejectPayment(tournamentId: string) {
-    await rejectPayment(tournamentId);
-    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    try {
+      await rejectPayment(tournamentId);
+      if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    } catch (error) {
+      Alert.alert('Unable to reject payment', error instanceof Error ? error.message : 'Please try again.');
+    }
+  }
+
+  async function handleCompleteTournament(id: string) {
+    try {
+      await completeTournament(id);
+      setViewingTournament(null);
+      Alert.alert('Match completed', 'Winner payouts are now available in the player list.');
+    } catch (error) {
+      Alert.alert('Unable to end match', error instanceof Error ? error.message : 'Please try again.');
+    }
+  }
+
+  async function handleStartTournament(id: string) {
+    try {
+      await startTournament(id);
+    } catch (error) {
+      Alert.alert('Unable to start match', error instanceof Error ? error.message : 'Please try again.');
+    }
   }
 
   return (
@@ -729,7 +816,7 @@ export default function AdminScreen() {
 
       {showAddForm ? (
         <AddTournamentForm
-          onAdd={(data) => { addTournament(data); }}
+          onAdd={addTournament}
           onClose={() => setShowAddForm(false)}
         />
       ) : (
@@ -742,6 +829,8 @@ export default function AdminScreen() {
               registrationCount={getRegistrations(item.id).length}
               onSave={updateRoomDetails}
               onViewPlayers={setViewingTournament}
+              onStart={handleStartTournament}
+              onComplete={handleCompleteTournament}
             />
           )}
           contentContainerStyle={styles.listContent}
@@ -901,9 +990,20 @@ const styles = StyleSheet.create({
     gap: 6, borderRadius: 10, paddingVertical: 10, marginTop: 4,
   },
   saveBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  completeMatchBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 7, borderRadius: 10, paddingVertical: 10, marginTop: 8,
+    backgroundColor: 'rgba(248,113,113,0.1)',
+  },
+  completeMatchText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#F87171' },
 
   // Add form
+  addFormRoot: { flex: 1 },
   formCard: { flex: 1, marginHorizontal: 16, borderRadius: 20, borderWidth: 1, padding: 20, marginBottom: 12 },
+  addFormContent: { paddingBottom: 12 },
+  addFormFooter: {
+    borderTopWidth: 1, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12,
+  },
   formHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   formTitle: { fontSize: 18, fontFamily: 'Inter_700Bold' },
   fLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8, marginBottom: 6, marginTop: 14 },
@@ -928,7 +1028,7 @@ const styles = StyleSheet.create({
   prizeSectionSub: { fontSize: 11, fontFamily: 'Inter_400Regular' },
   rankPrizeRow: { flexDirection: 'row', gap: 8 },
   rankPrizeLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', marginBottom: 5, marginTop: 0 },
-  addSubmitBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 20 },
+  addSubmitBtn: { borderRadius: 12, paddingVertical: 15, alignItems: 'center', marginTop: 0 },
   // Slot form stepper
   slotFormRow: {
     flexDirection: 'row', alignItems: 'center', borderRadius: 12,

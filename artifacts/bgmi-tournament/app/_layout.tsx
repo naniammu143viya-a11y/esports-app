@@ -16,8 +16,12 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { TournamentProvider } from '@/context/TournamentContext';
 import { WalletProvider } from '@/context/WalletContext';
+import { setBaseUrl } from '@workspace/api-client-react';
 
 SplashScreen.preventAutoHideAsync();
+
+const apiDomain = process.env.EXPO_PUBLIC_DOMAIN;
+setBaseUrl(apiDomain ? (apiDomain.startsWith('http') ? apiDomain : `https://${apiDomain}`) : null);
 
 const queryClient = new QueryClient();
 

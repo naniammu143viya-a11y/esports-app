@@ -98,10 +98,10 @@ export function TournamentCard({ tournament, isJoined, isPaymentPending = false,
             {tournament.map}
           </Text>
         </View>
-        <View style={styles.metaItem}>
-          <MaterialCommunityIcons name="account-group" size={12} color={c.mutedForeground} />
-          <Text style={[styles.metaText, { color: c.mutedForeground }]}>
-            {tournament.teamSize === 1 ? 'Solo' : tournament.teamSize === 2 ? 'Duo' : `Squad ${tournament.teamSize}v${tournament.teamSize}`}
+        <View style={[styles.modeBadge, { backgroundColor: 'rgba(255,107,0,0.12)', borderColor: 'rgba(255,107,0,0.28)' }]}>
+          <MaterialCommunityIcons name="account-group" size={12} color={c.primary} />
+          <Text style={[styles.modeBadgeText, { color: c.primary }]}>
+            {tournament.teamSize === 1 ? 'SOLO' : tournament.teamSize === 2 ? 'DUO' : `SQUAD ${tournament.teamSize}V${tournament.teamSize}`}
           </Text>
         </View>
         {availableSeats <= 5 && availableSeats > 0 && !isJoined && !isFull && (
@@ -221,6 +221,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  modeBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    borderRadius: 14, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3,
+  },
+  modeBadgeText: { fontSize: 10, fontFamily: 'Inter_700Bold', letterSpacing: 0.35 },
   metaText: { fontSize: 12, fontFamily: 'Inter_400Regular' },
   divider: { height: 1, marginBottom: 12 },
   statsRow: {

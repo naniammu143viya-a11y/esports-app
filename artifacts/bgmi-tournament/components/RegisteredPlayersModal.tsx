@@ -15,8 +15,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
-import { useWallet } from '@/context/WalletContext';
-import type { EarningBreakdown } from '@/context/WalletContext';
+import { useTournaments } from '@/context/TournamentContext';
 import type { Registration, Tournament } from '@/context/TournamentContext';
 
 // ─── Rank options ─────────────────────────────────────────────────────────────
@@ -49,7 +48,7 @@ function PlayerRow({
   canDeclare: boolean;
   tournament: Tournament;
   alreadyDeclared: boolean;
-  onDeclare: (reg: Registration, amount: number, breakdown: EarningBreakdown) => Promise<void>;
+  onDeclare: (reg: Registration, kills: number, rank: RankKey) => Promise<void>;
 }) {
   const c = useColors();
   const [expanded, setExpanded] = useState(false);
@@ -69,10 +68,11 @@ function PlayerRow({
     }
     setDeclaring(true);
     try {
-      const breakdown: EarningBreakdown = { kills, killPrize, rank, rankPrize };
-      await onDeclare(reg, total, breakdown);
+      await onDeclare(reg, kills, rank);
       if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setExpanded(false);
+    } catch {
+      // The parent displays the server error.
     } finally {
       setDeclaring(false);
     }
@@ -85,7 +85,9 @@ function PlayerRow({
       {alreadyDeclared && (
         <View style={styles.winnerBanner}>
           <Ionicons name="trophy" size={13} color="#EAB308" />
-          <Text style={styles.winnerBannerText}>Winner declared</Text>
+          <Text style={styles.winnerBannerText}>
+            Prize credited{reg.payout ? ` · ₹${reg.payout.amount.toLocaleString()}` : ''}
+          </Text>
         </View>
       )}
 
@@ -277,18 +279,20 @@ interface Props {
 
 export function RegisteredPlayersModal({ tournament, registrations, onClose }: Props) {
   const c = useColors();
-  const { addEarnings } = useWallet();
-  const [declaredMap, setDeclaredMap] = useState<Record<string, number>>({});
+  const { awardWinner } = useTournaments();
+  const [declaredMap, setDeclaredMap] = useState<Record<string, boolean>>({});
 
-  const canDeclare = tournament.status !== 'upcoming';
+  const canDeclare = tournament.status === 'completed';
 
-  async function handleDeclare(reg: Registration, amount: number, breakdown: EarningBreakdown) {
-    await addEarnings(reg.username, amount, tournament.id, tournament.name, breakdown);
-    setDeclaredMap((prev) => ({ ...prev, [reg.username]: amount }));
-    Alert.alert(
-      '🏆 Prize Credited!',
-      `₹${amount.toLocaleString()} has been added to ${reg.username}'s wallet.`,
-    );
+  async function handleDeclare(reg: Registration, kills: number, rank: RankKey) {
+    try {
+      const payout = await awardWinner(tournament.id, reg.userId, kills, rank);
+      setDeclaredMap((prev) => ({ ...prev, [reg.userId]: true }));
+      Alert.alert('Prize Credited', `₹${payout.amount.toLocaleString()} was added to ${reg.username}'s in-app wallet.`);
+    } catch (error) {
+      Alert.alert('Unable to credit prize', error instanceof Error ? error.message : 'Please try again.');
+      throw error;
+    }
   }
 
   // Prize structure info
@@ -348,7 +352,7 @@ export function RegisteredPlayersModal({ tournament, registrations, onClose }: P
                 reg={item}
                 canDeclare={canDeclare}
                 tournament={tournament}
-                alreadyDeclared={!!declaredMap[item.username]}
+                alreadyDeclared={!!declaredMap[item.userId] || !!item.payout}
                 onDeclare={handleDeclare}
               />
             )}

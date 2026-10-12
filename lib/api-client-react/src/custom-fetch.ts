@@ -78,6 +78,25 @@ function resolveUrl(input: RequestInfo | URL): string {
   return input.url;
 }
 
+function getConfiguredOrigin(input: RequestInfo | URL): string | null {
+  const candidates = [_baseUrl, resolveUrl(input)];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+
+    try {
+      const normalized = candidate.startsWith("/")
+        ? null
+        : new URL(candidate).origin;
+      if (normalized) return normalized;
+    } catch {
+      // Ignore relative or malformed candidates and try the next source.
+    }
+  }
+
+  return null;
+}
+
 function mergeHeaders(...sources: Array<HeadersInit | undefined>): Headers {
   const headers = new Headers();
 
@@ -344,6 +363,21 @@ export async function customFetch<T = unknown>(
     },
   );
 
+  const browserReferrer =
+    typeof window !== "undefined" && window.location?.href
+      ? window.location.href
+      : null;
+
+  if (!browserReferrer) {
+    // Native runtimes cannot rely on browser-managed Origin/Referer headers.
+    // Use the configured API origin; these headers are not CORS-authentication.
+    const origin = getConfiguredOrigin(input);
+    if (origin) {
+      headers.set("Origin", origin);
+      headers.set("Referer", `${origin}/`);
+    }
+  }
+
   if (
     typeof init.body === "string" &&
     !headers.has("content-type") &&
@@ -367,7 +401,16 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  const fetchInit: RequestInit = { ...init, method, headers };
+  if (browserReferrer) {
+    // Browsers forbid setting Origin/Referer in headers. Origin is generated
+    // by the browser for cross-origin requests; referrer controls Referer.
+    fetchInit.referrer = init.referrer ?? browserReferrer;
+    fetchInit.referrerPolicy =
+      init.referrerPolicy ?? "strict-origin-when-cross-origin";
+  }
+
+  const response = await fetch(input, fetchInit);
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

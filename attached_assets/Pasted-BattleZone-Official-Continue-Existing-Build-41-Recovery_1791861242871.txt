@@ -1,0 +1,47 @@
+BattleZone Official — Continue Existing Build 41 Recovery and Tournament Fixes
+
+Continue from the current diagnostic results. Do not create a new project or replace the existing app.
+
+1. Restore original Build 41
+   
+   - Verify source commit "6216a65d8afbe86ee37a3ae63299d4e43a3c0e9a".
+   - The previous check reported that this commit is missing from the local Git history and is not advertised by the remote.
+   - Search available GitHub branches, tags, and authorized backups. If the exact source cannot be recovered, stop and report what is missing. Do not substitute another version and call it Build 41.
+
+2. Restore access safely
+   
+   - Diagnose the existing production backend/database connection and the "503 Admin sign-in is not configured" and payment API "401 Unauthorized" errors.
+   - Identify missing configuration or secrets without revealing secret values.
+   - Do not invent credentials, bypass authentication, reset the admin password, or modify production data during diagnosis.
+
+3. Remove the demo account/tournament
+   
+   - I do NOT want a demo account or demo tournament kept in the final app.
+   - Do not add fake tournaments or fake payments to production.
+   - Keep existing legitimate user and tournament records safe.
+
+4. Winner announcement and tournament closure
+   
+   - In the existing admin panel, let the authorized admin select a winner and explicitly confirm the announcement.
+   - Save the winner and announce the winner’s name/details to customers using the existing notification system where available.
+   - After confirmation, mark the tournament Completed and prevent new registrations and payments immediately.
+   - Keep the completed tournament visible in history for one hour after completion, then automatically remove it from active tournament lists for both admin and customers.
+   - Do not permanently delete the tournament, winner, registrations, or payment records.
+   - Implement the one-hour rule using server-side completion timestamps and backend filtering, not a phone-only timer.
+   - Do not announce a winner or complete a tournament until the admin confirms the action.
+
+5. Preserve and verify existing features
+   
+   - Fix admin-configured UPI details and customer payment verification without hardcoded recipient IDs or fake payment approval.
+   - Restore Solo, Duo, and Squad modes where supported.
+   - Ensure published tournaments sync between admin and customer apps.
+   - Test only against the verified original source and authorized backend access.
+
+6. Before production changes or APK build
+   
+   - First report the source, backend, database, admin authentication, payment API, and signing/EAS access findings.
+   - List the exact proposed production changes and wait for my confirmation.
+   - Do not build or publish an APK until the original source and signing configuration are verified and critical checks pass.
+   - Report actual test results and blockers honestly. Do not claim anything was fixed or tested unless it really was.
+
+Preserve the existing backup branch, app identity, production records, and all unrelated working features. Never reset branches or force-push.

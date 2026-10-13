@@ -19,4 +19,5 @@
 
 export * from "./payments";
 export * from "./player-accounts";
+export * from "./settings-wallet";
 export * from "./tournaments";

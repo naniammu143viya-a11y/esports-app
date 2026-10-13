@@ -14,7 +14,7 @@
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "esports-app--vishwanathanan6.replit.app"
+        "EXPO_PUBLIC_DOMAIN": "esports-app--vishwanathanan2.replit.app"
       },
       "android": {
         "buildType": "apk"

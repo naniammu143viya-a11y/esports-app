@@ -1,8 +1,8 @@
 {
   "expo": {
     "name": "BattleZone",
-    "slug": "battlezone",
-    "owner": "vndoriginalss-team",
+    "slug": "bgmi-tournament",
+    "owner": "nanidil",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -36,7 +36,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "992bd60e-2781-48b8-b42e-c6cbc271d77f"
+        "projectId": "824303db-e413-4097-aef3-a96b561f5a66"
       }
     }
   }

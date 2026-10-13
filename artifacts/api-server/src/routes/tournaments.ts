@@ -20,7 +20,6 @@ import {
 } from "../lib/sessionTokens";
 
 const router: IRouter = Router();
-const DEFAULT_TOURNAMENT_ADMIN_PASSWORD = "Admin@9988";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -78,10 +77,9 @@ function passwordMatches(candidate: string, expected: string): boolean {
 }
 
 router.post("/admin/session", (req, res) => {
-  const expected =
-    process.env.TOURNAMENT_ADMIN_PASSWORD || DEFAULT_TOURNAMENT_ADMIN_PASSWORD;
-  if (!isSessionSigningConfigured()) {
-    res.status(503).json({ error: "Tournament admin login is not configured." });
+  const expected = process.env.ADMIN_PASSWORD;
+  if (!expected || !isSessionSigningConfigured()) {
+    res.status(503).json({ error: "Admin authentication is not configured." });
     return;
   }
   if (typeof req.body?.password !== "string") {

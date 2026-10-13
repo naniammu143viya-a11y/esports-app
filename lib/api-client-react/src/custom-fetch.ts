@@ -337,6 +337,29 @@ export async function customFetch<T = unknown>(
 
   const headers = mergeHeaders(isRequest(input) ? input.headers : undefined, headersInit);
 
+  if (!headers.has("x-requested-with")) {
+    headers.set("x-requested-with", "XMLHttpRequest");
+  }
+  if (!headers.has("content-type")) {
+    headers.set("content-type", "application/json");
+  }
+
+  // Browsers control Origin and Referer and reject attempts to override them.
+  // Native fetch has no browser location, so use the configured app/API origin.
+  if (typeof window === "undefined" || !window.location?.origin) {
+    try {
+      const configuredOrigin = _baseUrl ? new URL(_baseUrl).origin : null;
+      if (configuredOrigin && !headers.has("origin")) {
+        headers.set("origin", configuredOrigin);
+      }
+      if (configuredOrigin && !headers.has("referer")) {
+        headers.set("referer", `${configuredOrigin}/`);
+      }
+    } catch {
+      // Keep requests usable when no absolute base URL has been configured.
+    }
+  }
+
   if (
     typeof init.body === "string" &&
     !headers.has("content-type") &&

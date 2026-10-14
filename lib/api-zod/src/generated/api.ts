@@ -92,6 +92,28 @@ export const GetCurrentUserResponse = zod.object({
 
 
 /**
+ * @summary Update the current player's UPI ID
+ */
+export const updateCurrentUserProfileBodyUpiIdMax = 128;
+
+
+
+export const UpdateCurrentUserProfileBody = zod.object({
+  "upiId": zod.string().max(updateCurrentUserProfileBodyUpiIdMax).nullable()
+})
+
+export const UpdateCurrentUserProfileResponse = zod.object({
+  "id": zod.string(),
+  "username": zod.string(),
+  "mobile": zod.string(),
+  "gameId": zod.string(),
+  "gameType": zod.enum(['BGMI', 'FreeFire']),
+  "isAdmin": zod.boolean(),
+  "upiId": zod.string().nullable()
+})
+
+
+/**
  * @summary List active and recently completed database tournaments
  */
 export const GetTournamentsResponse = zod.object({
@@ -231,7 +253,8 @@ export const updateTournamentBodyMaxTeamsMax = 10000;
 export const UpdateTournamentBody = zod.object({
   "roomId": zod.string().max(updateTournamentBodyRoomIdMax).optional(),
   "password": zod.string().max(updateTournamentBodyPasswordMax).optional(),
-  "maxTeams": zod.number().min(1).max(updateTournamentBodyMaxTeamsMax).optional()
+  "maxTeams": zod.number().min(1).max(updateTournamentBodyMaxTeamsMax).optional(),
+  "status": zod.enum(['ongoing']).optional()
 })
 
 export const UpdateTournamentResponse = zod.object({

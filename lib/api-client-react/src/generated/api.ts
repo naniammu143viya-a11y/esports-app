@@ -35,6 +35,7 @@ import type {
   SubmitUtrInput,
   Tournament,
   TournamentList,
+  UpdateProfileInput,
   UpdateSettingsInput,
   UpdateTournamentInput,
   User,
@@ -366,6 +367,77 @@ export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUs
 
 
 
+
+export const getUpdateCurrentUserProfileUrl = () => {
+
+
+
+
+  return `/api/me/profile`
+}
+
+/**
+ * @summary Update the current player's UPI ID
+ */
+export const updateCurrentUserProfile = async (updateProfileInput: UpdateProfileInput, options?: RequestInit): Promise<User> => {
+
+  return customFetch<User>(getUpdateCurrentUserProfileUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateProfileInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateCurrentUserProfileMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCurrentUserProfile>>, TError,{data: BodyType<UpdateProfileInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCurrentUserProfile>>, TError,{data: BodyType<UpdateProfileInput>}, TContext> => {
+
+const mutationKey = ['updateCurrentUserProfile'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCurrentUserProfile>>, {data: BodyType<UpdateProfileInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateCurrentUserProfile(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCurrentUserProfileMutationResult = NonNullable<Awaited<ReturnType<typeof updateCurrentUserProfile>>>
+    export type UpdateCurrentUserProfileMutationBody = BodyType<UpdateProfileInput>
+    export type UpdateCurrentUserProfileMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update the current player's UPI ID
+ */
+export const useUpdateCurrentUserProfile = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCurrentUserProfile>>, TError,{data: BodyType<UpdateProfileInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCurrentUserProfile>>,
+        TError,
+        {data: BodyType<UpdateProfileInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateCurrentUserProfileMutationOptions(options));
+    }
 
 export const getGetTournamentsUrl = () => {
 

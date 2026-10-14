@@ -1,15 +1,18 @@
-# [Project name]
+# BattleZone
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+BattleZone is an Expo mobile app and Express API for BGMI and Free Fire tournaments, player registrations, and wallet payments.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- Run the **BGMI & Free Fire Tournaments** workflow to start the Expo mobile preview.
+- Run the **API Server** workflow alongside it for backend requests (`/api/healthz`).
+- `pnpm install --frozen-lockfile` — install workspace dependencies
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `pnpm --filter @workspace/db run push` — apply the existing schema to the development database only
+- Runtime database: Replit's managed development PostgreSQL (`DATABASE_URL`)
+- Admin sign-in requires the `ADMIN_PASSWORD` Replit Secret. Customer registration does not require it.
+- `SESSION_SECRET` is already configured as a Replit Secret.
 
 ## Stack
 
@@ -22,24 +25,29 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/bgmi-tournament/` — Expo Router customer/admin mobile app.
+- `artifacts/api-server/` — Express API and esports routes.
+- `lib/db/` — PostgreSQL schema and Drizzle configuration.
+- `lib/api-client-react/` — shared API client.
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Keep the imported pnpm workspace and Expo app identity intact.
+- Do not seed demo users or tournaments during development setup.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Browse and register for BGMI and Free Fire tournaments, with administrator features and wallet/payment flows backed by the API.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+Do not change production data or build/publish a release without the user's explicit approval.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Expo Go phone preview uses Replit's managed preview. Expo account sign-in is optional for Metro startup.
+- The API server requires `DATABASE_URL`; admin authentication requires `ADMIN_PASSWORD`.
 
 ## Pointers
 
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.

@@ -77,6 +77,14 @@ export interface LoginInput {
   password: string;
 }
 
+export interface UpdateProfileInput {
+  /**
+     * @maxLength 128
+     * @nullable
+     */
+  upiId: string | null;
+}
+
 export type TournamentStatus = typeof TournamentStatus[keyof typeof TournamentStatus];
 
 
@@ -174,6 +182,13 @@ export interface CreateTournamentInput {
   rankPrizes: RankPrizes;
 }
 
+export type UpdateTournamentInputStatus = typeof UpdateTournamentInputStatus[keyof typeof UpdateTournamentInputStatus];
+
+
+export const UpdateTournamentInputStatus = {
+  ongoing: 'ongoing',
+} as const;
+
 export interface UpdateTournamentInput {
   /** @maxLength 120 */
   roomId?: string;
@@ -184,6 +199,7 @@ export interface UpdateTournamentInput {
      * @maximum 10000
      */
   maxTeams?: number;
+  status?: UpdateTournamentInputStatus;
 }
 
 export interface PlayerInfo {

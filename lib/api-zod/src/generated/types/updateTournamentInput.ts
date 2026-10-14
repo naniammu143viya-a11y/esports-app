@@ -5,6 +5,7 @@
  * Shared API for the esports tournament app.
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdateTournamentInputStatus } from './updateTournamentInputStatus';
 
 export interface UpdateTournamentInput {
   /** @maxLength 120 */
@@ -16,4 +17,5 @@ export interface UpdateTournamentInput {
      * @maximum 10000
      */
   maxTeams?: number;
+  status?: UpdateTournamentInputStatus;
 }

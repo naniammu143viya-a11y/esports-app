@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "bgmi-tournament",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",

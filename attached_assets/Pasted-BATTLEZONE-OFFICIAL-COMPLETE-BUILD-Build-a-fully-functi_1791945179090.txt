@@ -1,0 +1,55 @@
+BATTLEZONE OFFICIAL — COMPLETE BUILD
+
+Build a fully functional Battlezone Official esports platform with an Android customer app, responsive admin panel, backend API, PostgreSQL database, UPI payments, notifications, APK, testing, and GitHub push.
+
+1. Protect Old Project
+
+Treat the imported project as a reference. Never overwrite or push to the original GitHub repository. Never modify its production database or copy secrets/private user data. Use a separate new Replit project, database, environment secrets, and NEW GitHub repository. Inspect the code and errors before making changes.
+
+2. Technology & Design
+
+Prefer Expo React Native + TypeScript, React admin panel, Node.js backend, and PostgreSQL. Use a professional black/charcoal gaming UI with neon-orange accents. Implement real functionality, not just mockups.
+
+3. Authentication
+
+Build secure admin and customer login, logout, password hashing, authorization, and protected APIs. Set up the initial admin securely; no hardcoded passwords, demo accounts, or public admin registration.
+
+4. Customer App & Admin Panel
+
+Customer features: registration, profile, tournaments, join, payment status, history, and notifications.
+
+Admin features: dashboard, tournaments, registrations, payment verification, player management, winner announcements, notifications, and settings.
+
+5. Customizable Tournaments
+
+Admin can create, edit, save, publish, unpublish, and complete tournaments. Include title, game, Single/Solo, Duo, Squad, configurable player/team capacity (including 100 or custom limits), date, time, entry fee, prize pool, and rules. Include a working Save Tournament button.
+
+Calculate slots correctly, distinguish players from teams, prevent duplicate registrations and overbooking, and sync all data through the backend. Only published tournaments appear to customers. No demo tournaments or fake production data.
+
+6. UPI Payments
+
+Admin configures the official UPI ID and receiver name. Show the exact configured recipient, correct amount, and matching QR code. Support PhonePe, Google Pay, Paytm, and compatible UPI apps, with QR/UPI-ID fallback. Never use stale hardcoded UPI details.
+
+Customers enter UTR/reference number and tap Verify Payment; screenshot upload is not required. Prevent duplicate UTRs. Payment statuses: Pending, Approved, Rejected, Failed. Admin verifies actual transactions and approves/rejects. A typed UTR or opened UPI app is NOT proof of payment. Use a real provider API only when configured.
+
+7. Winners & Auto-Close
+
+Admin confirms the actual winner. Save the result, mark the tournament Completed, stop new joins/payments, and notify customers. Exactly one hour after completion, hide it from Active Tournaments in both apps using server-side timestamps. Preserve history, winners, registrations, and payments; never permanently delete records.
+
+8. Notifications & Database
+
+Implement in-app notifications for tournaments, registrations, payments, schedule changes, cancellations, and winners. Create proper database tables, migrations, relationships, validation, authorization, indexes, and audit logs. Never trust client-provided prices, payment status, permissions, or winners. Do not silently use local-only storage if the database fails.
+
+9. Test and Fix
+
+Test login, permissions, tournament CRUD, persistence, slots, synchronization, UPI details, UTR duplicates, payment approval/rejection, winner announcements, one-hour expiry, notifications, database, API errors, and security. Fix failures and rerun tests. Test the APK on a real device when possible. Never report unexecuted tests as passed or fabricate payment success.
+
+10. APK & Final GitHub Push
+
+Build an installable Android APK if supported and verify its backend configuration. Before pushing, verify the remote points to the NEW repository, exclude secrets and ".env" files, review changes, commit, push, and verify the remote commit. Never force-push to or overwrite the old repository.
+
+FINAL REPORT
+
+Report implemented features, actual PASS/FAIL tests, unresolved errors, APK status, and the new GitHub URL and commit hash only after verifying success. If blocked by missing secrets, permissions, quota, or network, state the exact blocker.
+
+Work in order: INSPECT → PLAN → BUILD → TEST → FIX → RETEST → APK → PUSH → VERIFY. Never claim success without evidence.

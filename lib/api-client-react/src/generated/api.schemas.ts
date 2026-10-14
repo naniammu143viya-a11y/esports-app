@@ -333,3 +333,20 @@ export interface UpdateSettingsInput {
   adminUpiId: string;
 }
 
+export interface AdminPasswordUpdateInput {
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  currentPassword: string;
+  /**
+     * @minLength 8
+     * @maxLength 128
+     */
+  newPassword: string;
+}
+
+export interface AdminPasswordUpdateResult {
+  updated: boolean;
+}
+

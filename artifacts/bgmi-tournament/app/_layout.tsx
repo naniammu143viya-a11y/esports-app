@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Alert, Platform } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -17,6 +18,7 @@ import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { TournamentProvider } from '@/context/TournamentContext';
 import { WalletProvider } from '@/context/WalletContext';
 import { setBaseUrl } from '@workspace/api-client-react';
+import * as Updates from 'expo-updates';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -28,6 +30,40 @@ const queryClient = new QueryClient();
 function RootLayoutNav() {
   const { isLoggedIn, isLoading } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    if (Platform.OS === 'web' || __DEV__ || !Updates.isEnabled) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        if (!update.isAvailable || cancelled) return;
+        Alert.alert(
+          'New Update Available!',
+          'A new version is ready. Update now to get the latest improvements.',
+          [
+            { text: 'Later', style: 'cancel' },
+            {
+              text: 'Update Now',
+              onPress: async () => {
+                try {
+                  await Updates.fetchUpdateAsync();
+                  await Updates.reloadAsync();
+                } catch {
+                  Alert.alert('Update failed', 'Please try again later.');
+                }
+              },
+            },
+          ],
+        );
+      } catch {
+        // An update check must never prevent sign-in or app startup.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (isLoading) return;

@@ -40,6 +40,26 @@ function secret(name: "SESSION_SECRET" | "ADMIN_PASSWORD") {
   return value;
 }
 
+function safeTextEqual(left: string, right: string): boolean {
+  const a = Buffer.from(left);
+  const b = Buffer.from(right);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+function verifyPasswordHash(password: string, encoded: string): boolean {
+  if (password.length > 128) return false;
+  const [salt, storedHex] = encoded.split(":");
+  if (!salt || !/^[a-f0-9]{32}$/i.test(salt) || !/^[a-f0-9]{128}$/i.test(storedHex ?? "")) return false;
+  const submitted = scryptSync(password, salt, 64);
+  const stored = Buffer.from(storedHex, "hex");
+  return submitted.length === stored.length && timingSafeEqual(submitted, stored);
+}
+
+function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString("hex");
+  return `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
+}
+
 function signToken(user: { id: string; username: string; isAdmin: boolean }) {
   const now = Date.now();
   const payload: Claims = {
@@ -223,12 +243,17 @@ router.post("/auth/login", async (req, res) => {
   const password = typeof input.password === "string" ? input.password : "";
   if (!username || !password) return bad(res, 400, "Enter a username and password.");
   if (username === "admin") {
-    let adminPassword: string;
-    try { adminPassword = secret("ADMIN_PASSWORD"); }
-    catch { return bad(res, 503, "Admin sign-in is not configured."); }
-    const submitted = Buffer.from(password);
-    const expected = Buffer.from(adminPassword);
-    if (submitted.length !== expected.length || !timingSafeEqual(submitted, expected)) return bad(res, 401, "Incorrect username or password.");
+    const [savedAdmin] = await db.select().from(esportsUsers).where(eq(esportsUsers.username, "admin")).limit(1);
+    let passwordMatches = false;
+    if (savedAdmin?.passwordHash) {
+      passwordMatches = verifyPasswordHash(password, savedAdmin.passwordHash);
+    } else {
+      let configuredPassword: string;
+      try { configuredPassword = secret("ADMIN_PASSWORD"); }
+      catch { return bad(res, 503, "Admin sign-in is not configured."); }
+      passwordMatches = safeTextEqual(password, configuredPassword);
+    }
+    if (!passwordMatches) return bad(res, 401, "Incorrect username or password.");
     const [admin] = await db.insert(esportsUsers).values({
       id: "admin", username: "admin", mobile: "", gameId: "", gameType: "BGMI", isAdmin: true,
     }).onConflictDoUpdate({
@@ -245,6 +270,34 @@ router.post("/auth/login", async (req, res) => {
   const stored = Buffer.from(storedHex, "hex");
   if (submitted.length !== stored.length || !timingSafeEqual(submitted, stored)) return bad(res, 401, "Incorrect username or password.");
   res.json({ token: signToken(account), user: userJson(account) });
+});
+
+router.post("/admin/password", requireAuth, requireAdmin, async (req, res) => {
+  const input = body(req);
+  const currentPassword = typeof input.currentPassword === "string" ? input.currentPassword : "";
+  const newPassword = typeof input.newPassword === "string" ? input.newPassword : "";
+  if (newPassword.length < 8 || newPassword.length > 128) {
+    return bad(res, 400, "New password must be between 8 and 128 characters.");
+  }
+  if (currentPassword === newPassword) return bad(res, 400, "Choose a password different from the current one.");
+
+  const [admin] = await db.select().from(esportsUsers).where(eq(esportsUsers.id, req.auth!.userId)).limit(1);
+  if (!admin || admin.username !== "admin" || !admin.isAdmin) return bad(res, 403, "Admin account not found.");
+  let currentPasswordMatches = false;
+  if (admin.passwordHash) {
+    currentPasswordMatches = verifyPasswordHash(currentPassword, admin.passwordHash);
+  } else {
+    let configuredPassword: string;
+    try { configuredPassword = secret("ADMIN_PASSWORD"); }
+    catch { return bad(res, 503, "Admin password verification is not configured."); }
+    currentPasswordMatches = safeTextEqual(currentPassword, configuredPassword);
+  }
+  if (!currentPasswordMatches) return bad(res, 401, "Current password is incorrect.");
+
+  await db.update(esportsUsers)
+    .set({ passwordHash: hashPassword(newPassword) })
+    .where(eq(esportsUsers.id, admin.id));
+  res.json({ updated: true });
 });
 
 router.get("/auth/me", requireAuth, async (req, res) => {

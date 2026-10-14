@@ -25,7 +25,15 @@ app.use(
     },
   }),
 );
-app.use(cors());
+// Expo native requests may have no Origin header, and neither Origin nor
+// Referer is an authentication mechanism. Admin routes remain bearer-token
+// protected in the API router.
+app.use(cors({
+  origin: (_origin, callback) => callback(null, true),
+  methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Accept", "Authorization", "Content-Type", "Origin", "Referer", "X-Requested-With"],
+  maxAge: 86400,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

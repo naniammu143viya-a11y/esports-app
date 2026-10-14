@@ -92,6 +92,26 @@ export const GetCurrentUserResponse = zod.object({
 
 
 /**
+ * @summary Change the authenticated admin password
+ */
+export const updateAdminPasswordBodyCurrentPasswordMax = 128;
+
+export const updateAdminPasswordBodyNewPasswordMin = 8;
+export const updateAdminPasswordBodyNewPasswordMax = 128;
+
+
+
+export const UpdateAdminPasswordBody = zod.object({
+  "currentPassword": zod.string().min(1).max(updateAdminPasswordBodyCurrentPasswordMax),
+  "newPassword": zod.string().min(updateAdminPasswordBodyNewPasswordMin).max(updateAdminPasswordBodyNewPasswordMax)
+})
+
+export const UpdateAdminPasswordResponse = zod.object({
+  "updated": zod.boolean()
+})
+
+
+/**
  * @summary Update the current player's UPI ID
  */
 export const updateCurrentUserProfileBodyUpiIdMax = 128;

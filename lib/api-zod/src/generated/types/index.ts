@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './adminPasswordUpdateInput';
+export * from './adminPasswordUpdateResult';
 export * from './authSession';
 export * from './awardPayoutInput';
 export * from './awardPayoutInputRank';

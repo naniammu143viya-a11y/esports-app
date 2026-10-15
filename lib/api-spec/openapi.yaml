@@ -76,6 +76,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
+  /admin/password:
+    post:
+      operationId: updateAdminPassword
+      tags: [auth]
+      security:
+        - bearerAuth: []
+      summary: Change the authenticated admin password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminPasswordUpdateInput"
+      responses:
+        "200":
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPasswordUpdateResult"
   /me/profile:
     patch:
       operationId: updateCurrentUserProfile
@@ -675,3 +695,14 @@ components:
       properties:
         adminUpiId: { type: string, minLength: 3, maxLength: 128 }
       required: [adminUpiId]
+    AdminPasswordUpdateInput:
+      type: object
+      properties:
+        currentPassword: { type: string, minLength: 1, maxLength: 128 }
+        newPassword: { type: string, minLength: 8, maxLength: 128 }
+      required: [currentPassword, newPassword]
+    AdminPasswordUpdateResult:
+      type: object
+      properties:
+        updated: { type: boolean }
+      required: [updated]

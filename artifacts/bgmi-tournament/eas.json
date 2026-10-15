@@ -1,15 +1,34 @@
 {
   "cli": {
     "version": ">= 12.0.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "preview": {
       "node": "20.19.4",
       "pnpm": "10.26.1",
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_DOMAIN": "https://esports-app--channelcartoon3.replit.app"
+      },
       "android": {
         "buildType": "apk"
       }
+    },
+    "production": {
+      "node": "20.19.4",
+      "pnpm": "10.26.1",
+      "channel": "production",
+      "autoIncrement": false,
+      "env": {
+        "EXPO_PUBLIC_DOMAIN": "https://esports-app--channelcartoon3.replit.app"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
     }
+  },
+  "submit": {
+    "production": {}
   }
 }

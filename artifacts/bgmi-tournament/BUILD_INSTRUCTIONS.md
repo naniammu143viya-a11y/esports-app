@@ -1,8 +1,9 @@
 # BattleZone — Android Build Instructions
 
 ## What's inside this folder
-Complete Expo (React Native) source for the BattleZone BGMI & Free Fire tournament app.
-No backend needed — 100% AsyncStorage offline app.
+Expo (React Native) source for the BattleZone BGMI & Free Fire tournament app.
+The API server and PostgreSQL database are required for accounts, tournaments,
+payments, wallet data, and admin settings.
 
 ---
 
@@ -28,10 +29,13 @@ use that option for phone installation.
 The project is already configured with:
 
 - Android package: `com.battlezone.app`
-- Version: `1.0.0`
-- Version code: `1`
+- Version: `1.0.1`
+- Version code: `2`
 - Production AAB profile in `eas.json`
 - Preview APK profile in `eas.json`
+- Both EAS profiles set `EXPO_PUBLIC_DOMAIN` to the currently published API host.
+  Update that value in `eas.json` if the API deployment URL changes; the mobile
+  client appends the `/api` route itself and supplies the configured Origin/Referer.
 
 ### If the Android build option is not visible
 
@@ -122,8 +126,8 @@ accepts the upload without package-name, version-code, signing, or bundle errors
 |----------------|--------------------------|
 | App name       | BattleZone               |
 | Package name   | com.battlezone.app       |
-| Version        | 1.0.0                    |
-| Version code   | 1                        |
+| Version        | 1.0.1                    |
+| Version code   | 2                        |
 | Min Android    | 6.0 (API 23)             |
 | Orientation    | Portrait only            |
 
@@ -136,6 +140,6 @@ accepts the upload without package-name, version-code, signing, or bundle errors
 
 Before each new Play Store release, update `app.json`:
 ```json
-"version": "1.0.1",          ← human-readable
-"versionCode": 2              ← must increase by at least 1 each release
+"version": "1.0.2",          ← human-readable
+"versionCode": 3              ← must increase by at least 1 each release
 ```

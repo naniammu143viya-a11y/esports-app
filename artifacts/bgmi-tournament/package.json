@@ -62,6 +62,7 @@
   },
   "dependencies": {
     "expo-intent-launcher": "~57.0.1",
+    "expo-updates": "~57.0.26",
     "react-native-qrcode-svg": "^6.3.21"
   },
   "packageManager": "pnpm@10.26.1"

@@ -33,6 +33,9 @@ The project is already configured with:
 - Version code: `2`
 - Production AAB profile in `eas.json`
 - Preview APK profile in `eas.json`
+- Both EAS profiles set `EXPO_PUBLIC_DOMAIN` to the currently published API host.
+  Update that value in `eas.json` if the API deployment URL changes; the mobile
+  client appends the `/api` route itself and supplies the configured Origin/Referer.
 
 ### If the Android build option is not visible
 

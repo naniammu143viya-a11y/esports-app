@@ -9,6 +9,12 @@ Expo SDK upgrades in this monorepo must be scoped to the mobile workspace, follo
 
 **How to apply:** Upgrade from `artifacts/bgmi-tournament`, align SDK-managed dependencies, update changed Router/icon APIs, restart the Expo workflow once, then verify with `expo install --check`, typecheck, and a preview screenshot.
 
+For Expo SDK 57, the Replit Node.js runtime must be at least 22.13; Metro can start under Node 20 even though Expo Doctor rejects that runtime.
+
+**Why:** Startup success alone did not reveal that the project runtime was unsupported by the installed Expo SDK.
+
+**How to apply:** Check Expo Doctor's Node.js requirement during SDK alignment and set the Replit runtime module to Node 22 or newer before considering the setup complete.
+
 Android release validation still needs an authenticated external build service and
 a physical device or emulator; Replit can validate the config and Android bundle,
 but cannot produce the signed APK/AAB or complete Play Console upload validation.

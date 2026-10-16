@@ -464,9 +464,11 @@ type EntryType = 'FREE' | 'PAID';
 function AddTournamentForm({
   onAdd,
   onClose,
+  bottomInset,
 }: {
   onAdd: (data: Omit<Tournament, 'id' | 'registeredTeams' | 'winners' | 'completedAt'>) => Promise<void>;
   onClose: () => void;
+  bottomInset: number;
 }) {
   const c = useColors();
   const [game, setGame] = useState<GameType>('BGMI');
@@ -529,7 +531,12 @@ function AddTournamentForm({
   ];
 
   return (
-    <View style={[styles.formCard, { backgroundColor: c.card, borderColor: c.border }]}>
+    <View
+      style={[
+        styles.formCard,
+        { backgroundColor: c.card, borderColor: c.border, marginBottom: Math.max(88, bottomInset + 80) },
+      ]}
+    >
       <ScrollView
         style={styles.formScroll}
         contentContainerStyle={styles.addFormContent}
@@ -945,6 +952,7 @@ export default function AdminScreen() {
         <AddTournamentForm
           onAdd={addTournament}
           onClose={() => setShowAddForm(false)}
+          bottomInset={insets.bottom}
         />
       ) : (
         <FlatList

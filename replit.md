@@ -16,7 +16,7 @@ BattleZone is an Expo mobile app and Express API for BGMI and Free Fire tourname
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
+- pnpm workspaces, Node.js 22+, TypeScript 5.9 (Expo SDK 57 requires Node.js 22.13+)
 - API: Express 5
 - DB: PostgreSQL + Drizzle ORM
 - Validation: Zod (`zod/v4`), `drizzle-zod`

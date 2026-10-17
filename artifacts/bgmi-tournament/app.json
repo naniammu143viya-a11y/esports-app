@@ -24,7 +24,7 @@
       ]
     },
     "updates": {
-      "url": "https://u.expo.dev/824303db-e413-4097-aef3-a96b561f5a66",
+      "url": "https://u.expo.dev/a9d1d414-8d6e-478c-b6f2-ef50c29fc172",
       "fallbackToCacheTimeout": 0,
       "checkAutomatically": "NEVER"
     },
@@ -60,9 +60,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "824303db-e413-4097-aef3-a96b561f5a66"
+        "projectId": "a9d1d414-8d6e-478c-b6f2-ef50c29fc172"
       }
     },
-    "owner": "nanidil"
+    "owner": "vishwanadhs-team"
   }
 }

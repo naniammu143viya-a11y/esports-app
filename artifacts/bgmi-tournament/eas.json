@@ -5,7 +5,7 @@
   },
   "build": {
     "preview": {
-      "node": "20.19.4",
+      "node": "22.13.0",
       "pnpm": "10.26.1",
       "channel": "preview",
       "env": {
@@ -16,7 +16,7 @@
       }
     },
     "production": {
-      "node": "20.19.4",
+      "node": "22.13.0",
       "pnpm": "10.26.1",
       "channel": "production",
       "autoIncrement": false,

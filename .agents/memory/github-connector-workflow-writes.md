@@ -7,6 +7,8 @@ Writes to `.github/workflows` can be blocked by the connector's Cloudflare layer
 
 Git CLI authentication also needs verification: a healthy GitHub OAuth connection with `repo` and `workflow` scopes still produced `Invalid username or token` on a shell push in this workspace. Neither a successful bind result nor a healthy connection proves GitHub accepted a push.
 
+An account-level GitHub source-control connection can still report `not_added` after `addIntegration` returns success, while `gh auth status` reports no login and Git pushes fail. Treat the actual push result as authoritative; do not claim the connection is usable based only on the bind response.
+
 Concurrent Git Data API blob writes through the connector can return HTTP 429 despite ample GitHub rate-limit quota; serialized writes with brief pauses succeeded. Treat this as connector burst throttling, not evidence that the account quota is exhausted.
 
 Keep this project's Git remote credential-free; never embed a PAT in its URL.

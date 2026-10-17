@@ -9,7 +9,7 @@
       "pnpm": "10.26.1",
       "channel": "preview",
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "https://esports-app--channelcartoon3.replit.app"
+        "EXPO_PUBLIC_DOMAIN": "https://esports-app--anandvishwanat2.replit.app"
       },
       "android": {
         "buildType": "apk"
@@ -21,7 +21,7 @@
       "channel": "production",
       "autoIncrement": false,
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "https://esports-app--channelcartoon3.replit.app"
+        "EXPO_PUBLIC_DOMAIN": "https://esports-app--anandvishwanat2.replit.app"
       },
       "android": {
         "buildType": "app-bundle"

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "BattleZone",
-    "slug": "bgmi-tournament",
+    "slug": "battlezone",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",

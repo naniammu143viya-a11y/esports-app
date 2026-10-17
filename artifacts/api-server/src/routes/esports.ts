@@ -40,6 +40,10 @@ function secret(name: "SESSION_SECRET" | "ADMIN_PASSWORD") {
   return value;
 }
 
+function adminUsername() {
+  return process.env.ADMIN_USERNAME?.trim().toLowerCase() || "admin";
+}
+
 function safeTextEqual(left: string, right: string): boolean {
   const a = Buffer.from(left);
   const b = Buffer.from(right);
@@ -220,7 +224,7 @@ router.post("/auth/register", async (req, res) => {
   const gameType = textValue(input.gameType);
   const password = typeof input.password === "string" ? input.password : "";
   const upiId = textValue(input.upiId);
-  if (username.length < 2 || username.length > 32 || username === "admin") return bad(res, 400, "Choose a valid username.");
+  if (username.length < 2 || username.length > 32 || username === adminUsername()) return bad(res, 400, "Choose a valid username.");
   if (!/^\d{10}$/.test(mobile) || !gameId || !["BGMI", "FreeFire"].includes(gameType) || password.length < 6) {
     return bad(res, 400, "Check your mobile, game profile, and password.");
   }
@@ -242,8 +246,9 @@ router.post("/auth/login", async (req, res) => {
   const username = textValue(input.username).toLowerCase();
   const password = typeof input.password === "string" ? input.password : "";
   if (!username || !password) return bad(res, 400, "Enter a username and password.");
-  if (username === "admin") {
-    const [savedAdmin] = await db.select().from(esportsUsers).where(eq(esportsUsers.username, "admin")).limit(1);
+  if (username === adminUsername()) {
+    const configuredAdminUsername = adminUsername();
+    const [savedAdmin] = await db.select().from(esportsUsers).where(eq(esportsUsers.username, configuredAdminUsername)).limit(1);
     let passwordMatches = false;
     if (savedAdmin?.passwordHash) {
       passwordMatches = verifyPasswordHash(password, savedAdmin.passwordHash);
@@ -255,7 +260,7 @@ router.post("/auth/login", async (req, res) => {
     }
     if (!passwordMatches) return bad(res, 401, "Incorrect username or password.");
     const [admin] = await db.insert(esportsUsers).values({
-      id: "admin", username: "admin", mobile: "", gameId: "", gameType: "BGMI", isAdmin: true,
+      id: "admin", username: configuredAdminUsername, mobile: "", gameId: "", gameType: "BGMI", isAdmin: true,
     }).onConflictDoUpdate({
       target: esportsUsers.username,
       set: { isAdmin: true },
@@ -282,7 +287,7 @@ router.post("/admin/password", requireAuth, requireAdmin, async (req, res) => {
   if (currentPassword === newPassword) return bad(res, 400, "Choose a password different from the current one.");
 
   const [admin] = await db.select().from(esportsUsers).where(eq(esportsUsers.id, req.auth!.userId)).limit(1);
-  if (!admin || admin.username !== "admin" || !admin.isAdmin) return bad(res, 403, "Admin account not found.");
+  if (!admin || admin.username !== adminUsername() || !admin.isAdmin) return bad(res, 403, "Admin account not found.");
   let currentPasswordMatches = false;
   if (admin.passwordHash) {
     currentPasswordMatches = verifyPasswordHash(currentPassword, admin.passwordHash);

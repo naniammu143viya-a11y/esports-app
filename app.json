@@ -1,12 +1,34 @@
 {
   "expo": {
-    "extra": {
-      "eas": {
-        "projectId": "9cc855ce-83a9-47e8-90de-48ac74c2a9ac"
-      }
+    "name": "BattleZone",
+    "slug": "battlezone",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
     },
     "android": {
-      "package": "com.nanidil.workspace"
-    }
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.battlezone.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "a9d1d414-8d6e-478c-b6f2-ef50c29fc172"
+      }
+    },
+    "owner": "vishwanadhs-team"
   }
 }

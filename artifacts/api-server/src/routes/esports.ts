@@ -2,6 +2,7 @@ import { randomBytes, randomUUID, scryptSync, createHmac, timingSafeEqual } from
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
+import { createAdminLoginHandler, hashPassword, safeTextEqual, verifyPasswordHash } from "./admin-login";
 import {
   esportsPayments,
   esportsPayouts,
@@ -42,26 +43,6 @@ function secret(name: "SESSION_SECRET" | "ADMIN_PASSWORD") {
 
 function adminUsername() {
   return process.env.ADMIN_USERNAME?.trim().toLowerCase() || "admin";
-}
-
-function safeTextEqual(left: string, right: string): boolean {
-  const a = Buffer.from(left);
-  const b = Buffer.from(right);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
-function verifyPasswordHash(password: string, encoded: string): boolean {
-  if (password.length > 128) return false;
-  const [salt, storedHex] = encoded.split(":");
-  if (!salt || !/^[a-f0-9]{32}$/i.test(salt) || !/^[a-f0-9]{128}$/i.test(storedHex ?? "")) return false;
-  const submitted = scryptSync(password, salt, 64);
-  const stored = Buffer.from(storedHex, "hex");
-  return submitted.length === stored.length && timingSafeEqual(submitted, stored);
-}
-
-function hashPassword(password: string): string {
-  const salt = randomBytes(16).toString("hex");
-  return `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
 }
 
 function signToken(user: { id: string; username: string; isAdmin: boolean }) {
@@ -121,6 +102,26 @@ function userJson(row: typeof esportsUsers.$inferSelect) {
     upiId: row.upiId,
   };
 }
+
+const adminLoginHandler = createAdminLoginHandler({
+  findByUsername: async (username) => {
+    const [admin] = await db.select().from(esportsUsers).where(eq(esportsUsers.username, username)).limit(1);
+    return admin;
+  },
+  initializeAdmin: async (username) => {
+    const [admin] = await db.insert(esportsUsers).values({
+      id: "admin", username, mobile: "", gameId: "", gameType: "BGMI", isAdmin: true,
+    }).onConflictDoUpdate({
+      target: esportsUsers.username,
+      set: { isAdmin: true },
+    }).returning();
+    return admin;
+  },
+  getAdminUsername: adminUsername,
+  getAdminPassword: () => process.env.ADMIN_PASSWORD,
+  issueToken: signToken,
+  serializeUser: userJson,
+});
 
 function payoutJson(row: typeof esportsPayouts.$inferSelect) {
   return {
@@ -245,29 +246,11 @@ router.post("/auth/login", async (req, res) => {
   const input = body(req);
   const username = textValue(input.username).toLowerCase();
   const password = typeof input.password === "string" ? input.password : "";
-  if (!username || !password) return bad(res, 400, "Enter a username and password.");
   if (username === adminUsername()) {
-    const configuredAdminUsername = adminUsername();
-    const [savedAdmin] = await db.select().from(esportsUsers).where(eq(esportsUsers.username, configuredAdminUsername)).limit(1);
-    let passwordMatches = false;
-    if (savedAdmin?.passwordHash) {
-      passwordMatches = verifyPasswordHash(password, savedAdmin.passwordHash);
-    } else {
-      let configuredPassword: string;
-      try { configuredPassword = secret("ADMIN_PASSWORD"); }
-      catch { return bad(res, 503, "Admin sign-in is not configured."); }
-      passwordMatches = safeTextEqual(password, configuredPassword);
-    }
-    if (!passwordMatches) return bad(res, 401, "Incorrect username or password.");
-    const [admin] = await db.insert(esportsUsers).values({
-      id: "admin", username: configuredAdminUsername, mobile: "", gameId: "", gameType: "BGMI", isAdmin: true,
-    }).onConflictDoUpdate({
-      target: esportsUsers.username,
-      set: { isAdmin: true },
-    }).returning();
-    res.json({ token: signToken(admin), user: userJson(admin) });
+    await adminLoginHandler(req, res, () => undefined);
     return;
   }
+  if (!username || !password) return bad(res, 400, "Enter a username and password.");
   const [account] = await db.select().from(esportsUsers).where(eq(esportsUsers.username, username)).limit(1);
   if (!account?.passwordHash) return bad(res, 401, "Incorrect username or password.");
   const [salt, storedHex] = account.passwordHash.split(":");

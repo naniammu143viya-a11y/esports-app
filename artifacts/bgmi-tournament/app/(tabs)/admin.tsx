@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert,
   FlatList,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -790,7 +791,16 @@ function AddTournamentForm({
       </View>
 
       </ScrollView>
-      <View style={[styles.formFooter, { backgroundColor: c.card, borderTopColor: c.border }]}>
+      <View
+        style={[
+          styles.formFooter,
+          {
+            backgroundColor: c.card,
+            borderTopColor: c.border,
+            paddingBottom: Math.max(12, bottomInset),
+          },
+        ]}
+      >
         <Pressable
           accessibilityRole="button"
           disabled={saving}
@@ -949,11 +959,17 @@ export default function AdminScreen() {
       </View>
 
       {showAddForm ? (
-        <AddTournamentForm
-          onAdd={addTournament}
-          onClose={() => setShowAddForm(false)}
-          bottomInset={insets.bottom}
-        />
+        <KeyboardAvoidingView
+          style={styles.formKeyboardArea}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
+          <AddTournamentForm
+            onAdd={addTournament}
+            onClose={() => setShowAddForm(false)}
+            bottomInset={insets.bottom}
+          />
+        </KeyboardAvoidingView>
       ) : (
         <FlatList
           data={allTournaments}
@@ -1137,10 +1153,11 @@ const styles = StyleSheet.create({
   completeMatchText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#F87171' },
 
   // Add form
-  formCard: { flex: 1, marginHorizontal: 16, borderRadius: 20, borderWidth: 1, marginBottom: 12, overflow: 'hidden' },
+  formKeyboardArea: { flex: 1, minHeight: 0 },
+  formCard: { flex: 1, minHeight: 0, marginHorizontal: 16, borderRadius: 20, borderWidth: 1, marginBottom: 12, overflow: 'hidden' },
   formScroll: { flex: 1 },
   addFormContent: { padding: 18, paddingBottom: 24 },
-  formFooter: { borderTopWidth: 1, paddingHorizontal: 18, paddingTop: 10, paddingBottom: 12 },
+  formFooter: { flexShrink: 0, borderTopWidth: 1, paddingHorizontal: 18, paddingTop: 10, elevation: 4, zIndex: 1 },
   formHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   formTitle: { fontSize: 18, fontFamily: 'Inter_700Bold' },
   fLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.8, marginBottom: 6, marginTop: 14 },
@@ -1165,7 +1182,7 @@ const styles = StyleSheet.create({
   prizeSectionSub: { fontSize: 11, fontFamily: 'Inter_400Regular' },
   rankPrizeRow: { flexDirection: 'row', gap: 8 },
   rankPrizeLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', marginBottom: 5, marginTop: 0 },
-  addSubmitBtn: { borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 0 },
+  addSubmitBtn: { minHeight: 48, borderRadius: 12, padding: 14, alignItems: 'center', justifyContent: 'center', marginTop: 0 },
   // Slot form stepper
   slotFormRow: {
     flexDirection: 'row', alignItems: 'center', borderRadius: 12,

@@ -20,14 +20,11 @@
       "permissions": [
         "READ_MEDIA_IMAGES",
         "READ_MEDIA_VIDEO",
-        "READ_EXTERNAL_STORAGE",
-        "READ_MEDIA_IMAGES",
-        "READ_MEDIA_VIDEO",
         "READ_EXTERNAL_STORAGE"
       ]
     },
     "updates": {
-      "url": "https://u.expo.dev/841b6506-6209-4ec8-96b2-b6f50a618223",
+      "url": "https://u.expo.dev/a9d1d414-8d6e-478c-b6f2-ef50c29fc172",
       "fallbackToCacheTimeout": 0,
       "checkAutomatically": "NEVER"
     },
@@ -63,9 +60,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "841b6506-6209-4ec8-96b2-b6f50a618223"
+        "projectId": "a9d1d414-8d6e-478c-b6f2-ef50c29fc172"
       }
     },
-    "owner": "nanidil-2"
+    "owner": "vishwanadhs-team"
   }
 }

@@ -54,6 +54,7 @@ export function createAdminLoginHandler<User extends AdminLoginUser>(
   dependencies: AdminLoginDependencies<User>,
 ): RequestHandler {
   return async (req, res) => {
+    try {
     const input = body(req);
     const username = textValue(input.username).toLowerCase();
     const password = typeof input.password === "string" ? input.password : "";
@@ -75,5 +76,9 @@ export function createAdminLoginHandler<User extends AdminLoginUser>(
 
     const admin = await dependencies.initializeAdmin(configuredAdminUsername);
     res.json({ token: dependencies.issueToken(admin), user: dependencies.serializeUser(admin) });
+      } catch (err: any) {
+      console.error("Admin login error:", err);
+      return bad(res, 500, err.message || "Internal server error");
+    }
   };
 }

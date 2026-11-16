@@ -21,11 +21,19 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
-packages = ["glib"]
+packages = ["glib", "eas-cli"]
+
+[[ports]]
+localPort = 3000
+externalPort = 3000
 
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
 
 [userenv]
 

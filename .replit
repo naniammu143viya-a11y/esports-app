@@ -2,7 +2,7 @@ modules = ["nodejs-22"]
 run = "PORT=3000 pnpm --filter @workspace/api-server run start"
 
 [deployment]
-deploymentTarget = "vm"
+deploymentTarget = "cloudrun"
 run = ["sh", "-c", "PORT=3000 pnpm --filter @workspace/api-server run start"]
 
 [[ports]]

@@ -12,8 +12,7 @@
   "dependencies": {
     "@replit/connectors-sdk": "^0.4.1",
     "expo": "~58.0.25",
-    "expo-updates": "~57.0.26",
-    "pg": "^8.22.0"
+    "expo-updates": "~57.0.26"
   },
   "devDependencies": {
     "prettier": "^3.9.5",

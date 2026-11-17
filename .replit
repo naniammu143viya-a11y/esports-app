@@ -1,27 +1,9 @@
-modules = ["web", "bash", "nodejs-22", "postgresql-16"]
+modules = ["nodejs-22"]
+run = "PORT=3000 pnpm --filter @workspace/api-server run start"
 
 [deployment]
-router = "application"
-deploymentTarget = "autoscale"
-
-[deployment.postBuild]
-args = ["pnpm", "store", "prune"]
-env = { "CI" = "true" }
-
-[workflows]
-runButton = "Project"
-
-[agent]
-stack = "PNPM_WORKSPACE"
-expertMode = true
-
-[postMerge]
-path = "scripts/post-merge.sh"
-timeoutMs = 20000
-
-[nix]
-channel = "stable-25_05"
-packages = ["glib", "eas-cli"]
+deploymentTarget = "vm"
+run = ["sh", "-c", "PORT=3000 pnpm --filter @workspace/api-server run start"]
 
 [[ports]]
 localPort = 3000
@@ -38,8 +20,3 @@ externalPort = 8080
 [[ports]]
 localPort = 8081
 externalPort = 8081
-
-[userenv]
-
-[userenv.shared]
-ADMIN_USERNAME = "admin"

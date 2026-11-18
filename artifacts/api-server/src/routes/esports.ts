@@ -106,7 +106,7 @@ function userJson(row: typeof esportsUsers.$inferSelect) {
 
 const adminLoginHandler = createAdminLoginHandler({
   findByUsername: async (username) => {
-    const [admin] = await db.select().from(esportsUsers).where(eq(esportsUsers.username, username)).limit(1)
+    const [admin] = await db.select().from(esportsUsers).where(eq(esportsUsers.username, username)).limit(sql`1`)
 ;
     return admin;
   },
@@ -253,7 +253,7 @@ router.post("/auth/login", async (req, res) => {
     return;
   }
   if (!username || !password) return bad(res, 400, "Enter a username and password.");
-  const [account] = await db.select().from(esportsUsers).where(eq(esportsUsers.username, username)).limit(1)
+  const [account] = await db.select().from(esportsUsers).where(eq(esportsUsers.username, username)).limit(sql`1`)
 ;
   if (!account?.passwordHash) return bad(res, 401, "Incorrect username or password.");
   const [salt, storedHex] = account.passwordHash.split(":");
@@ -272,7 +272,7 @@ router.post("/admin/password", requireAuth, requireAdmin, async (req, res) => {
   }
   if (currentPassword === newPassword) return bad(res, 400, "Choose a password different from the current one.");
 
-  const [admin] = await db.select().from(esportsUsers).where(eq(esportsUsers.id, req.auth!.userId)).limit(1)
+  const [admin] = await db.select().from(esportsUsers).where(eq(esportsUsers.id, req.auth!.userId)).limit(sql`1`)
 ;
   if (!admin || admin.username !== adminUsername() || !admin.isAdmin) return bad(res, 403, "Admin account not found.");
   let currentPasswordMatches = false;
@@ -293,7 +293,7 @@ router.post("/admin/password", requireAuth, requireAdmin, async (req, res) => {
 });
 
 router.get("/auth/me", requireAuth, async (req, res) => {
-  const [user] = await db.select().from(esportsUsers).where(eq(esportsUsers.id, req.auth!.userId)).limit(1)
+  const [user] = await db.select().from(esportsUsers).where(eq(esportsUsers.id, req.auth!.userId)).limit(sql`1`)
 ;
   if (!user) return bad(res, 401, "Account no longer exists.");
   res.json(userJson(user));
@@ -359,14 +359,14 @@ router.patch("/tournaments/:tournamentId", requireAuth, requireAdmin, async (req
     if (input.status !== "ongoing") {
       return bad(res, 400, "Only the upcoming-to-live transition is supported here.");
     }
-    const [current] = await db.select().from(esportsTournaments).where(eq(esportsTournaments.id, tournamentId)).limit(1)
+    const [current] = await db.select().from(esportsTournaments).where(eq(esportsTournaments.id, tournamentId)).limit(sql`1`)
 ;
     if (!current || current.status !== "upcoming") return bad(res, 409, "Only an upcoming tournament can be started.");
     updates.status = "ongoing";
   }
   if (input.maxTeams !== undefined) {
     const maxTeams = intValue(input.maxTeams);
-    const [tournament] = await db.select().from(esportsTournaments).where(eq(esportsTournaments.id, tournamentId)).limit(1);
+    const [tournament] = await db.select().from(esportsTournaments).where(eq(esportsTournaments.id, tournamentId)).limit(sql`1`);
     if (!tournament || maxTeams < tournament.registeredTeams) return bad(res, 400, "Slot limit cannot be below the current registration count.");
     updates.maxTeams = maxTeams;
   }
@@ -378,7 +378,7 @@ router.patch("/tournaments/:tournamentId", requireAuth, requireAdmin, async (req
 
 router.post("/tournaments/:tournamentId/complete", requireAuth, requireAdmin, async (req, res) => {
   const tournamentId = routeParam(req.params.tournamentId);
-  const [current] = await db.select().from(esportsTournaments).where(eq(esportsTournaments.id, tournamentId)).limit(1)
+  const [current] = await db.select().from(esportsTournaments).where(eq(esportsTournaments.id, tournamentId)).limit(sql`1`)
 ;
   if (!current) return bad(res, 404, "Tournament not found.");
   if (current.status !== "ongoing") return bad(res, 409, "Only a live match can be completed.");
@@ -404,7 +404,7 @@ async function registrationRows(tournamentId?: string, userId?: string) {
   for (const { registration, user } of rows) {
     const [payout] = await db.select().from(esportsPayouts).where(
       and(eq(esportsPayouts.tournamentId, registration.tournamentId), eq(esportsPayouts.userId, user.id)),
-    ).limit(1);
+    ).limit(sql`1`);
     result.push({
       id: registration.id,
       userId: user.id,
@@ -434,14 +434,14 @@ router.post("/tournaments/:tournamentId/join", requireAuth, async (req, res) => 
   const tournamentId = routeParam(req.params.tournamentId);
   try {
     const registration = await db.transaction(async (tx) => {
-      const [tournament] = await tx.select().from(esportsTournaments).where(eq(esportsTournaments.id, tournamentId)).for("update").limit(1)
+      const [tournament] = await tx.select().from(esportsTournaments).where(eq(esportsTournaments.id, tournamentId)).for("update").limit(sql`1`)
 ;
       if (!tournament || tournament.status !== "upcoming") throw new Error("Tournament is not open for registration.");
       if (tournament.entryFee !== 0) throw new Error("Submit payment and wait for admin verification to join.");
       if (tournament.registeredTeams >= tournament.maxTeams) throw new Error("Tournament is full.");
       const [existing] = await tx.select().from(esportsRegistrations).where(
         and(eq(esportsRegistrations.tournamentId, tournamentId), eq(esportsRegistrations.userId, req.auth!.userId)),
-      ).limit(1)
+      ).limit(sql`1`)
 ;
       if (existing) return existing;
       const paymentId = `FREE-${uuid()}`;
@@ -451,7 +451,7 @@ router.post("/tournaments/:tournamentId/join", requireAuth, async (req, res) => 
       await tx.update(esportsTournaments).set({ registeredTeams: tournament.registeredTeams + 1 }).where(eq(esportsTournaments.id, tournamentId));
       return created;
     });
-    const [user] = await db.select().from(esportsUsers).where(eq(esportsUsers.id, registration.userId)).limit(1);
+    const [user] = await db.select().from(esportsUsers).where(eq(esportsUsers.id, registration.userId)).limit(sql`1`);
     if (!user) return bad(res, 404, "Account not found.");
     res.status(201).json({
       id: registration.id, userId: user.id, tournamentId, username: user.username, mobile: user.mobile,
@@ -467,19 +467,19 @@ router.post("/tournaments/:tournamentId/utr", requireAuth, async (req, res) => {
   const tournamentId = routeParam(req.params.tournamentId);
   const utr = textValue(body(req).utr);
   if (!/^\d{12}$/.test(utr)) return bad(res, 400, "Enter the 12-digit transaction reference.");
-  const [tournament] = await db.select().from(esportsTournaments).where(eq(esportsTournaments.id, tournamentId)).limit(1)
+  const [tournament] = await db.select().from(esportsTournaments).where(eq(esportsTournaments.id, tournamentId)).limit(sql`1`)
 ;
   if (!tournament || tournament.status !== "upcoming" || tournament.entryFee <= 0) return bad(res, 404, "Paid tournament not found or no longer open.");
   const [existing] = await db.select().from(esportsPayments).where(and(
     eq(esportsPayments.tournamentId, tournamentId),
     eq(esportsPayments.userId, req.auth!.userId),
     eq(esportsPayments.status, "PENDING"),
-  )).limit(1);
+  )).limit(sql`1`);
   if (existing) return bad(res, 409, "A payment for this tournament is already awaiting verification.");
   const [alreadyRegistered] = await db.select().from(esportsRegistrations).where(and(
     eq(esportsRegistrations.tournamentId, tournamentId),
     eq(esportsRegistrations.userId, req.auth!.userId),
-  )).limit(1)
+  )).limit(sql`1`)
 ;
   if (alreadyRegistered) return bad(res, 409, "You are already registered for this tournament.");
   try {
@@ -487,7 +487,7 @@ router.post("/tournaments/:tournamentId/utr", requireAuth, async (req, res) => {
       id: uuid(), tournamentId, userId: req.auth!.userId, status: "PENDING",
       paymentId: `PAY-${uuid()}`, utr, amount: tournament.entryFee,
     }).returning();
-    const [player] = await db.select().from(esportsUsers).where(eq(esportsUsers.id, req.auth!.userId)).limit(1)
+    const [player] = await db.select().from(esportsUsers).where(eq(esportsUsers.id, req.auth!.userId)).limit(sql`1`)
 ;
     res.status(201).json(paymentJson(created, player, tournament.name));
   } catch (error) {
@@ -522,14 +522,14 @@ router.post("/admin/payments/:paymentId/approve", requireAuth, requireAdmin, asy
   const paymentId = routeParam(req.params.paymentId);
   try {
     const payment = await db.transaction(async (tx) => {
-      const [row] = await tx.select().from(esportsPayments).where(eq(esportsPayments.id, paymentId)).for("update").limit(1)
+      const [row] = await tx.select().from(esportsPayments).where(eq(esportsPayments.id, paymentId)).for("update").limit(sql`1`)
 ;
       if (!row || row.status !== "PENDING") throw new Error("Payment is no longer pending verification.");
-      const [tournament] = await tx.select().from(esportsTournaments).where(eq(esportsTournaments.id, row.tournamentId)).for("update").limit(1);
+      const [tournament] = await tx.select().from(esportsTournaments).where(eq(esportsTournaments.id, row.tournamentId)).for("update").limit(sql`1`);
       if (!tournament || tournament.status !== "upcoming") throw new Error("Tournament is no longer open.");
       const [existing] = await tx.select().from(esportsRegistrations).where(
         and(eq(esportsRegistrations.tournamentId, row.tournamentId), eq(esportsRegistrations.userId, row.userId)),
-      ).limit(1)
+      ).limit(sql`1`)
 ;
       if (!existing && tournament.registeredTeams >= tournament.maxTeams) throw new Error("Tournament is full.");
       const verifiedAt = new Date();
@@ -542,9 +542,9 @@ router.post("/admin/payments/:paymentId/approve", requireAuth, requireAdmin, asy
       }
       return approved;
     });
-    const [player] = await db.select().from(esportsUsers).where(eq(esportsUsers.id, payment.userId)).limit(1)
+    const [player] = await db.select().from(esportsUsers).where(eq(esportsUsers.id, payment.userId)).limit(sql`1`)
 ;
-    const [tournament] = await db.select().from(esportsTournaments).where(eq(esportsTournaments.id, payment.tournamentId)).limit(1)
+    const [tournament] = await db.select().from(esportsTournaments).where(eq(esportsTournaments.id, payment.tournamentId)).limit(sql`1`)
 ;
     res.json(paymentJson(payment, player, tournament?.name ?? "Tournament"));
   } catch (error) {
@@ -559,9 +559,9 @@ router.post("/admin/payments/:paymentId/reject", requireAuth, requireAdmin, asyn
     .where(and(eq(esportsPayments.id, paymentId), eq(esportsPayments.status, "PENDING")))
     .returning();
   if (!payment) return bad(res, 404, "Payment is no longer pending verification.");
-  const [player] = await db.select().from(esportsUsers).where(eq(esportsUsers.id, payment.userId)).limit(1)
+  const [player] = await db.select().from(esportsUsers).where(eq(esportsUsers.id, payment.userId)).limit(sql`1`)
 ;
-  const [tournament] = await db.select().from(esportsTournaments).where(eq(esportsTournaments.id, payment.tournamentId)).limit(1)
+  const [tournament] = await db.select().from(esportsTournaments).where(eq(esportsTournaments.id, payment.tournamentId)).limit(sql`1`)
 ;
   res.json(paymentJson(payment, player, tournament?.name ?? "Tournament"));
 });
@@ -577,14 +577,14 @@ router.post("/tournaments/:tournamentId/payouts", requireAuth, requireAdmin, asy
   }
   try {
     const payout = await db.transaction(async (tx) => {
-      const [tournament] = await tx.select().from(esportsTournaments).where(eq(esportsTournaments.id, tournamentId)).for("update").limit(1)
+      const [tournament] = await tx.select().from(esportsTournaments).where(eq(esportsTournaments.id, tournamentId)).for("update").limit(sql`1`)
 ;
       if (!tournament || tournament.status !== "completed") throw new Error("End the match before crediting winners.");
       const [registration] = await tx.select().from(esportsRegistrations).where(
         and(eq(esportsRegistrations.tournamentId, tournament.id), eq(esportsRegistrations.userId, userId)),
-      ).limit(1);
+      ).limit(sql`1`);
       if (!registration) throw new Error("Only a registered player can receive a tournament payout.");
-      const [user] = await tx.select().from(esportsUsers).where(eq(esportsUsers.id, userId)).for("update").limit(1)
+      const [user] = await tx.select().from(esportsUsers).where(eq(esportsUsers.id, userId)).for("update").limit(sql`1`)
 ;
       if (!user) throw new Error("Player account not found.");
       const rankPrize = rank === "1st" ? tournament.rank1Prize : rank === "2nd" ? tournament.rank2Prize : rank === "3rd" ? tournament.rank3Prize : 0;
@@ -598,7 +598,7 @@ router.post("/tournaments/:tournamentId/payouts", requireAuth, requireAdmin, asy
       if (!created) {
         const [existing] = await tx.select().from(esportsPayouts).where(
           and(eq(esportsPayouts.tournamentId, tournament.id), eq(esportsPayouts.userId, userId)),
-        ).limit(1)
+        ).limit(sql`1`)
 ;
         return existing!;
       }
@@ -615,7 +615,7 @@ router.post("/tournaments/:tournamentId/payouts", requireAuth, requireAdmin, asy
 });
 
 router.get("/me/wallet", requireAuth, async (req, res) => {
-  const [user] = await db.select().from(esportsUsers).where(eq(esportsUsers.id, req.auth!.userId)).limit(1)
+  const [user] = await db.select().from(esportsUsers).where(eq(esportsUsers.id, req.auth!.userId)).limit(sql`1`)
 ;
   if (!user) return bad(res, 404, "Account not found.");
   const earnings = await db.select().from(esportsPayouts).where(eq(esportsPayouts.userId, user.id)).orderBy(desc(esportsPayouts.declaredAt));
@@ -628,7 +628,7 @@ router.post("/me/withdrawals", requireAuth, async (req, res) => {
   if (!Number.isInteger(amount) || amount <= 0 || upiId.length < 3) return bad(res, 400, "Enter a valid amount and UPI ID.");
   try {
     const withdrawal = await db.transaction(async (tx) => {
-      const [user] = await tx.select().from(esportsUsers).where(eq(esportsUsers.id, req.auth!.userId)).for("update").limit(1)
+      const [user] = await tx.select().from(esportsUsers).where(eq(esportsUsers.id, req.auth!.userId)).for("update").limit(sql`1`)
 ;
       if (!user || user.walletBalance < amount) throw new Error("Insufficient wallet balance.");
       const [created] = await tx.insert(esportsWithdrawals).values({
@@ -659,7 +659,7 @@ router.post("/admin/withdrawals/:withdrawalId/paid", requireAuth, requireAdmin, 
 });
 
 router.get("/settings/public", async (_req, res) => {
-  const [setting] = await db.select().from(esportsSettings).where(eq(esportsSettings.key, "admin_upi_id")).limit(1)
+  const [setting] = await db.select().from(esportsSettings).where(eq(esportsSettings.key, "admin_upi_id")).limit(sql`1`)
 ;
   res.json({ adminUpiId: setting?.value ?? "" });
 });
